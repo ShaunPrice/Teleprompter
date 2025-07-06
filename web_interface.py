@@ -30,7 +30,7 @@ else:
     print("[INFO] Running on Windows - Authentication disabled for development.")
 
 app = Flask(__name__)
-app.secret_key = os.urandom(24)  # Generate a random secret key
+app.secret_key = "teleprompter_dev_secret"  # Use a fixed string for development
 
 # Add datetime filter for templates
 @app.template_filter('datetime')
@@ -149,15 +149,22 @@ def edit_file(filename=None):
         file_path = PROMPTS_DIR / filename
         if file_path.exists():
             try:
+                # Try UTF-8 first
                 with open(file_path, 'r', encoding='utf-8') as f:
                     content = f.read()
+            except UnicodeDecodeError:
+                try:
+                    # Fallback to Windows-1252 (common on Windows)
+                    with open(file_path, 'r', encoding='cp1252') as f:
+                        content = f.read()
+                    flash('File was not UTF-8, loaded with Windows-1252 encoding.', 'warning')
+                except Exception as e:
+                    flash(f'Error reading file: {e}', 'error')
+                    return redirect(url_for('index'))
             except Exception as e:
                 flash(f'Error reading file: {e}', 'error')
                 return redirect(url_for('index'))
-        else:
-            flash(f'File {filename} not found.', 'error')
-            return redirect(url_for('index'))
-    
+        # If file does not exist, do NOT flash an error—just open the editor with empty content
     return render_template('edit.html', filename=filename, content=content)
 
 @app.route('/save', methods=['POST'])
