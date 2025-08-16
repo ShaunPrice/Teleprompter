@@ -76,7 +76,7 @@ case "${OS}" in
         print_info "Linux detected"
         
         # Check for required packages
-        REQUIRED_PACKAGES=("python3-dev" "python3-venv" "python3-pip")
+    REQUIRED_PACKAGES=("python3-dev" "python3-venv" "python3-pip" "gphoto2" "libgphoto2-dev" "usbutils" "lsof")
         MISSING_PACKAGES=()
         
         if command -v apt-get &> /dev/null; then
@@ -88,8 +88,14 @@ case "${OS}" in
             done
             
             # Check for PAM development files
-            if ! dpkg -l "libpam0g-dev" &> /dev/null; then
-                MISSING_PACKAGES+=("libpam0g-dev")
+            if ! dpkg -l "libpam0g-dev" &> /dev/null; then MISSING_PACKAGES+=("libpam0g-dev"); fi
+            # Add user to plugdev if group exists
+            if getent group plugdev > /dev/null 2>&1; then
+                if ! id -nG "$USER" | grep -qw plugdev; then
+                    print_info "Adding $USER to plugdev group for camera access"
+                    sudo usermod -aG plugdev "$USER"
+                    print_warning "You may need to log out/in for plugdev group to apply"
+                fi
             fi
             
             if [ ${#MISSING_PACKAGES[@]} -ne 0 ]; then

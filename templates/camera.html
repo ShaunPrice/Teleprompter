@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Camera Control - Teleprompter</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+ body {font-family: Arial, sans-serif; background:#f5f5f5; margin:0; padding:0;}
+ header {background:#222; color:#fff; padding:15px 25px; display:flex; justify-content:space-between; align-items:center;}
+ a.nav {color:#fff; text-decoration:none; margin-right:15px;}
+ main {max-width:1100px; margin:25px auto; background:#fff; padding:25px; border-radius:10px; box-shadow:0 2px 8px rgba(0,0,0,.1);}
+ h1 {margin-top:0;}
+ .flex {display:flex; gap:30px; flex-wrap:wrap;}
+ .panel {flex:1 1 320px; border:1px solid #ddd; padding:15px; border-radius:8px; background:#fafafa;}
+ label {font-size:.85rem; font-weight:bold; display:block; margin-top:10px;}
+ select,input[type=number],input[type=text] {width:100%; padding:6px 8px; border:1px solid #ccc; border-radius:4px;}
+ button {padding:8px 14px; border:none; background:#007bff; color:#fff; border-radius:4px; cursor:pointer; margin-top:10px;}
+ button.secondary {background:#6c757d;}
+ button.danger {background:#dc3545;}
+ button.success {background:#28a745;}
+ button:disabled {opacity:.5; cursor:not-allowed;}
+ table {width:100%; border-collapse:collapse; font-size:.9rem;}
+ th,td {padding:6px 8px; border-bottom:1px solid #e0e0e0; text-align:left;}
+ .status-badge {display:inline-block; padding:4px 8px; border-radius:12px; font-size:.75rem; background:#ccc; color:#222;}
+ .status-active {background:#28a745; color:#fff;}
+ .grid {display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:10px;}
+ .control-item {background:#fff; border:1px solid #ddd; padding:10px; border-radius:6px; box-shadow:0 1px 3px rgba(0,0,0,.05);}
+ .control-item input {width:100%;}
+ .footer {margin-top:40px; font-size:.8rem; color:#666; text-align:center;}
+ code {background:#eee; padding:2px 4px; border-radius:4px;}
+ .recording-file {word-break:break-all; font-size:.8rem;}
+ .inline {display:inline-block;}
+ .controls-header {display:flex; justify-content:space-between; align-items:center;}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <a class="nav" href="{{ url_for('index') }}">← Dashboard</a>
+    <strong>Camera Control</strong>
+  </div>
+  <div id="recordingStatus" class="status-badge">Idle</div>
+</header>
+<main>
+  <h1>USB Camera Control & Recording</h1>
+  <p>Automatically detects connected cameras. Adjust available controls and start/stop recordings. Some controls depend on driver support and may not apply on all devices.</p>
+
+  <div class="flex">
+    <div class="panel">
+      <h2>Select Camera</h2>
+      <label for="cameraSelect">Detected Cameras</label>
+      <select id="cameraSelect"></select>
+      <button id="refreshCameras" class="secondary">Refresh</button>
+      <div style="margin-top:15px; font-size:.8rem; color:#555;" id="cameraInfo"></div>
+      <div style="margin-top:15px;">
+        <img id="previewImage" alt="Preview" style="width:100%; max-height:220px; object-fit:contain; background:#000; border:1px solid #333; border-radius:4px;" />
+        <div id="previewMeta" style="font-size:.6rem; color:#999; margin-top:4px;">-</div>
+        <div style="display:flex; gap:8px; margin-top:8px;">
+          <button id="capturePreview" class="secondary" style="flex:1;">Preview</button>
+          <button id="focusBtn" class="secondary" style="flex:1;">Autofocus</button>
+        </div>
+        <div style="display:flex; gap:8px; margin-top:8px; align-items:center;">
+          <label style="font-weight:normal; font-size:.7rem; display:flex; gap:4px; align-items:center;"><input type="checkbox" id="streamToggle"> Live Stream</label>
+          <select id="streamFps" style="flex:1;">
+            <option value="2">2 fps</option>
+            <option value="5" selected>5 fps</option>
+            <option value="10">10 fps</option>
+          </select>
+        </div>
+        <div style="display:flex; gap:8px; margin-top:6px; align-items:center;">
+          <label style="font-weight:normal; font-size:.7rem; display:flex; gap:4px; align-items:center;"><input type="checkbox" id="liveViewToggle"> DSLR Live View</label>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Recording Settings</h2>
+      <label for="resSelect">Resolution</label>
+      <select id="resSelect">
+        <option value="640x480">640 x 480</option>
+        <option value="1280x720" selected>1280 x 720</option>
+        <option value="1920x1080">1920 x 1080</option>
+      </select>
+      <label for="fpsInput">Frame Rate (FPS)</label>
+      <input type="number" id="fpsInput" value="30" min="1" max="120">
+      <label for="fileNameInput">Output Filename (.mp4)</label>
+      <input type="text" id="fileNameInput" placeholder="recording_[timestamp].mp4">
+      <button id="startBtn" class="success">Start Recording</button>
+      <button id="stopBtn" class="danger" disabled>Stop Recording</button>
+      <div style="margin-top:10px; font-size:.85rem;" id="activeFile"></div>
+    </div>
+
+    <div class="panel" style="flex:2 1 400px;">
+      <div class="controls-header">
+        <h2 style="margin:0;">Camera Controls</h2>
+        <button id="reloadControls" class="secondary" style="margin-top:0;">Reload</button>
+      </div>
+      <div id="controlsContainer" class="grid" style="margin-top:10px;"></div>
+      <div id="noControls" style="display:none; font-size:.85rem; color:#666;">No adjustable controls detected.</div>
+  <hr style="margin:20px 0;">
+  <h3 style="margin-top:0;">DSLR Settings</h3>
+  <div id="dslrConfigs" class="grid"></div>
+  <div id="noDslrConfigs" style="display:none; font-size:.75rem; color:#666;">No DSLR configs or not a DSLR device.</div>
+      <hr style="margin:20px 0;">
+      <h3 style="margin-top:0;">Profiles</h3>
+      <div style="display:flex; gap:6px; margin-bottom:8px;">
+        <select id="profileSelect" style="flex:1;"></select>
+        <button id="loadProfile" class="secondary">Load</button>
+        <button id="deleteProfile" class="danger" title="Delete profile">✕</button>
+      </div>
+      <div style="display:flex; gap:6px;">
+        <input type="text" id="newProfileName" placeholder="New profile name" style="flex:1;">
+        <button id="saveProfile" class="success">Save</button>
+      </div>
+      <div id="profileMsg" style="font-size:.7rem; margin-top:6px; color:#555;"></div>
+      <hr style="margin:20px 0;">
+      <h3 style="margin-top:0;">Automation</h3>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; font-size:.75rem;">
+        <label><input type="checkbox" id="autoRecord"> Auto Record w/ Teleprompter</label>
+        <label><input type="checkbox" id="autoStop" checked> Auto Stop w/ Teleprompter</label>
+        <label><input type="checkbox" id="autoFocus" checked> Auto Focus Before Record</label>
+      </div>
+      <div style="display:flex; gap:6px; margin-top:8px;">
+        <input type="number" id="autoWidth" placeholder="Width" value="1920" style="flex:1;">
+        <input type="number" id="autoHeight" placeholder="Height" value="1080" style="flex:1;">
+        <input type="number" id="autoFps" placeholder="FPS" value="30" style="flex:1;">
+      </div>
+      <button id="saveAutomation" class="secondary" style="margin-top:8px;">Save Automation Settings</button>
+      <div id="automationMsg" style="font-size:.7rem; margin-top:6px; color:#555;"></div>
+    </div>
+  </div>
+
+  <div class="panel" style="margin-top:30px;">
+    <h2>Status</h2>
+    <table>
+      <tbody>
+        <tr><th>Recording Active</th><td id="statActive">False</td></tr>
+        <tr><th>Device</th><td id="statDevice">-</td></tr>
+        <tr><th>Resolution</th><td id="statRes">-</td></tr>
+        <tr><th>FPS</th><td id="statFPS">-</td></tr>
+        <tr><th>Output File</th><td id="statFile" class="recording-file">-</td></tr>
+        <tr><th>Start Time (UTC)</th><td id="statStart">-</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="footer">Driver/firmware support varies. Focus, exposure and aperture may need manual lens adjustments if not reported. Uses OpenCV & v4l2-ctl if available. Enable DSLR Live View before streaming/preview to avoid unintended still captures.</div>
+</main>
+<script>
+async function fetchJSON(url, opts={}){ const r = await fetch(url, opts); if(!r.ok){throw new Error(await r.text());} return r.json(); }
+
+const cameraSelect = document.getElementById('cameraSelect');
+const refreshBtn = document.getElementById('refreshCameras');
+const controlsContainer = document.getElementById('controlsContainer');
+const reloadControlsBtn = document.getElementById('reloadControls');
+const noControls = document.getElementById('noControls');
+const startBtn = document.getElementById('startBtn');
+const stopBtn = document.getElementById('stopBtn');
+const resSelect = document.getElementById('resSelect');
+const fpsInput = document.getElementById('fpsInput');
+const fileNameInput = document.getElementById('fileNameInput');
+const recordingStatus = document.getElementById('recordingStatus');
+const activeFile = document.getElementById('activeFile');
+const previewImage = document.getElementById('previewImage');
+const capturePreviewBtn = document.getElementById('capturePreview');
+const focusBtn = document.getElementById('focusBtn');
+const dslrConfigsDiv = document.getElementById('dslrConfigs');
+const noDslrConfigs = document.getElementById('noDslrConfigs');
+// Streaming & profiles & automation
+const streamToggle = document.getElementById('streamToggle');
+const streamFps = document.getElementById('streamFps');
+const liveViewToggle = document.getElementById('liveViewToggle');
+const previewMeta = document.getElementById('previewMeta');
+const profileSelect = document.getElementById('profileSelect');
+const loadProfileBtn = document.getElementById('loadProfile');
+const deleteProfileBtn = document.getElementById('deleteProfile');
+const saveProfileBtn = document.getElementById('saveProfile');
+const newProfileName = document.getElementById('newProfileName');
+const profileMsg = document.getElementById('profileMsg');
+const autoRecord = document.getElementById('autoRecord');
+const autoStop = document.getElementById('autoStop');
+const autoFocus = document.getElementById('autoFocus');
+const autoWidth = document.getElementById('autoWidth');
+const autoHeight = document.getElementById('autoHeight');
+const autoFps = document.getElementById('autoFps');
+const saveAutomationBtn = document.getElementById('saveAutomation');
+const automationMsg = document.getElementById('automationMsg');
+
+async function loadCameras(){
+  try {
+  const data = await fetchJSON('/api/cameras');
+    cameraSelect.innerHTML='';
+    (data.cameras||[]).forEach(cam=>{
+      const opt=document.createElement('option');
+      opt.value=cam.id; opt.textContent=cam.label; cameraSelect.appendChild(opt);
+    });
+    if(!data.cameras.length){
+      const opt=document.createElement('option');
+      opt.textContent='No cameras found'; opt.disabled=true; cameraSelect.appendChild(opt);
+    }
+  } catch(e){ console.error(e); }
+}
+
+async function fetchPreview(){
+  const device = cameraSelect.value; if(!device) return;
+  if(streamToggle.checked){ return; }
+  try {
+    const d = await fetchJSON('/api/camera/preview_frame?device='+encodeURIComponent(device));
+    if(d.image){ previewImage.src = d.image; if(d.width&&d.height){ previewMeta.textContent = d.width+'x'+d.height; if(isDslr(device)){ lockDims(d.width,d.height); } } }
+  } catch(e){
+    if(isDslr(device)){
+      try {
+        const errObj = JSON.parse(e.message);
+        if(errObj && errObj.error === 'live view disabled'){
+          previewMeta.textContent = 'Enable DSLR Live View';
+          return;
+        }
+      } catch(_ignore){}
+    }
+    console.warn('Preview failed');
+  }
+}
+
+async function triggerFocus(){
+  const device = cameraSelect.value; if(!device) return;
+  focusBtn.disabled = true; focusBtn.textContent='Focusing...';
+  try {
+    const res = await fetchJSON('/api/camera/focus', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({device})});
+    focusBtn.textContent = res.success ? 'Focused' : 'Focus Failed';
+    setTimeout(()=>{focusBtn.textContent='Autofocus'; focusBtn.disabled=false;}, 2000);
+  } catch(e){
+    focusBtn.textContent='Error'; setTimeout(()=>{focusBtn.textContent='Autofocus'; focusBtn.disabled=false;}, 2000);
+  }
+}
+
+async function loadControls(){
+  const device = cameraSelect.value; if(!device){ return; }
+  controlsContainer.innerHTML='';
+  try {
+    const data = await fetchJSON('/api/camera/controls?device='+encodeURIComponent(device));
+    const controls = data.controls || [];
+    if(!controls.length){ noControls.style.display='block'; return; } else { noControls.style.display='none'; }
+    controls.forEach(ctrl=>{
+      const div=document.createElement('div'); div.className='control-item';
+      const label=document.createElement('label'); label.textContent=ctrl.name + ' ('+Math.round(ctrl.value)+')'; label.style.marginTop='0';
+      const input=document.createElement('input'); input.type='range'; input.min=ctrl.min; input.max=ctrl.max; input.step=ctrl.step||1; input.value=ctrl.value;
+      input.addEventListener('input',()=>{ label.textContent=ctrl.name + ' ('+input.value+')'; });
+      input.addEventListener('change',()=>{ setControl(device, ctrl.name, input.value); });
+      div.appendChild(label); div.appendChild(input); controlsContainer.appendChild(div);
+    });
+  } catch(e){ console.error(e); }
+  loadDslrConfigs();
+}
+
+async function setControl(device, control, value){
+  try {
+    await fetchJSON('/api/camera/set_control', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({device, control, value})});
+  } catch(e){ console.warn('Failed to set control', control, e); }
+}
+
+async function startRecording(){
+  const device = cameraSelect.value; if(!device) return;
+  const [w,h] = resSelect.value.split('x').map(Number);
+  const fps = fpsInput.value || 30;
+  let filename = fileNameInput.value.trim();
+  if(!filename){ filename = 'recording_'+new Date().toISOString().replace(/[:.]/g,'-')+'.mp4'; }
+  try {
+    const resp = await fetchJSON('/api/camera/start_record', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({device, width:w, height:h, fps:fps, filename})});
+    console.log('Recording started', resp);
+    if(resp.dslr_mode){ cameraInfo.innerHTML = (resp.dslr_movie? 'DSLR movie mode.' : 'DSLR preview frame capture mode.') + (cameraInfo.innerHTML? '<br>'+cameraInfo.innerHTML:''); }
+    updateStatus();
+  } catch(e){ alert('Failed to start recording: '+e.message); }
+}
+
+async function stopRecording(){
+  try { await fetchJSON('/api/camera/stop_record', {method:'POST'}); updateStatus(); } catch(e){ alert('Failed to stop: '+e.message); }
+}
+
+async function updateStatus(){
+  try {
+    const stat = await fetchJSON('/api/camera/status');
+    document.getElementById('statActive').textContent = stat.active;
+    document.getElementById('statDevice').textContent = stat.device || '-';
+    document.getElementById('statRes').textContent = stat.width? (stat.width+'x'+stat.height):'-';
+    document.getElementById('statFPS').textContent = stat.fps || '-';
+    document.getElementById('statFile').textContent = stat.output_file || '-';
+    document.getElementById('statStart').textContent = stat.start_time || '-';
+    if(stat.active){
+      recordingStatus.textContent='Recording'; recordingStatus.classList.add('status-active');
+      startBtn.disabled=true; stopBtn.disabled=false; activeFile.textContent='Writing to: '+stat.output_file;
+    } else {
+      recordingStatus.textContent='Idle'; recordingStatus.classList.remove('status-active');
+      startBtn.disabled=false; stopBtn.disabled=true; activeFile.textContent='';
+    }
+  } catch(e){ console.error(e); }
+}
+
+refreshBtn.addEventListener('click', ()=>{ loadCameras().then(loadControls); });
+cameraSelect.addEventListener('change', loadControls);
+reloadControlsBtn.addEventListener('click', loadControls);
+startBtn.addEventListener('click', startRecording);
+stopBtn.addEventListener('click', stopRecording);
+capturePreviewBtn.addEventListener('click', fetchPreview);
+focusBtn.addEventListener('click', triggerFocus);
+streamToggle.addEventListener('change', ()=>{ if(streamToggle.checked){ startStream(); } else { stopStream(); } });
+streamFps.addEventListener('change', ()=>{ if(streamToggle.checked){ startStream(); } });
+liveViewToggle.addEventListener('change', ()=>{ toggleLiveView(); });
+
+loadCameras().then(loadControls);
+updateStatus();
+setInterval(updateStatus, 4000);
+setInterval(()=>{ if(!document.hidden) fetchPreview(); }, 5000);
+let streamController = null;
+function startStream(){
+  stopStream();
+  const device = cameraSelect.value; if(!device){ return; }
+  if(isDslr(device) && !liveViewToggle.checked){
+    previewMeta.textContent = 'Enable Live View first';
+    return;
+  }
+  const fps = streamFps.value || 5;
+  const url = '/camera/stream?device='+encodeURIComponent(device)+'&fps='+fps;
+  previewImage.src = url;
+  previewMeta.textContent = 'Streaming '+fps+' fps';
+}
+async function toggleLiveView(){
+  const device = cameraSelect.value; if(!device) return;
+  try{
+  const res = await fetchJSON('/api/dslr/liveview',{method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({device, enable: liveViewToggle.checked})});
+  if(res.movie_stream){ previewMeta.textContent='Movie stream active'; }
+    if(!liveViewToggle.checked && streamToggle.checked){ // turn off stream if live view disabled for DSLR
+      if(isDslr(device)){
+        streamToggle.checked = false; stopStream();
+      }
+    }
+    if(liveViewToggle.checked && streamToggle.checked){ startStream(); }
+  } catch(e){ console.warn('liveview toggle failed', e); }
+}
+function stopStream(){
+  // Reset to blank and fetch a still
+  if(previewImage.src && previewImage.src.startsWith('http')){
+    previewImage.src = '';
+  }
+  fetchPreview();
+  previewMeta.textContent='-';
+}
+
+function isDslr(device){ return device && device.startsWith('usb:'); }
+function lockDims(w,h){
+  if(!w||!h) return;
+  if(isDslr(cameraSelect.value)){
+    if(resSelect){
+      let found = false;
+      [...resSelect.options].forEach(o=>{ if(o.value===w+'x'+h){ found=true; resSelect.value=o.value; }});
+      if(!found){ const opt=document.createElement('option'); opt.value=w+'x'+h; opt.textContent=w+'x'+h+' (cam)'; resSelect.appendChild(opt); resSelect.value=opt.value; }
+      resSelect.disabled = true;
+    }
+    fpsInput.disabled = true;
+  } else {
+    resSelect.disabled = false; fpsInput.disabled=false;
+  }
+}
+
+// Camera loading (no auto live view / stream)
+async function loadCameras(){
+  const data = await fetchJSON('/api/cameras');
+  cameraSelect.innerHTML='';
+  data.cameras.forEach(c=>{ const o=document.createElement('option'); o.value=c.id; o.textContent=c.label; cameraSelect.appendChild(o); });
+  if(data.cameras.length){ cameraSelect.value = data.cameras[0].id; }
+  return data;
+}
+
+// Profiles
+async function loadProfiles(){
+  try { const data = await fetchJSON('/api/dslr/profiles');
+    profileSelect.innerHTML='';
+    data.profiles.forEach(p=>{ const o=document.createElement('option'); o.value=p.name; o.textContent=p.name+(p.builtIn?' (built-in)':''); profileSelect.appendChild(o); });
+  } catch(e){ console.warn('Profiles load failed', e); }
+}
+loadProfileBtn.addEventListener('click', async ()=>{ const name=profileSelect.value; if(!name) return; try{ const r=await fetchJSON('/api/dslr/load_profile',{method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name})}); applyProfile(r.profile); profileMsg.textContent='Profile loaded.'; }catch(e){ profileMsg.textContent='Load failed'; }});
+deleteProfileBtn.addEventListener('click', async ()=>{ const name=profileSelect.value; if(!name) return; if(!confirm('Delete profile '+name+'?')) return; try{ await fetchJSON('/api/dslr/delete_profile',{method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name})}); profileMsg.textContent='Deleted.'; loadProfiles(); }catch(e){ profileMsg.textContent='Delete failed'; }});
+saveProfileBtn.addEventListener('click', async ()=>{ const name=newProfileName.value.trim(); if(!name){ profileMsg.textContent='Name required'; return; } const profile={ name, width:autoWidth.value|0, height:autoHeight.value|0, fps:autoFps.value|0, dslr_configs: collectDslrConfigValues() }; try{ await fetchJSON('/api/dslr/save_profile',{method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(profile)}); profileMsg.textContent='Saved.'; newProfileName.value=''; loadProfiles(); }catch(e){ profileMsg.textContent='Save failed'; }});
+function applyProfile(p){ if(!p) return; if(p.width) autoWidth.value=p.width; if(p.height) autoHeight.value=p.height; if(p.fps) autoFps.value=p.fps; if(p.dslr_configs){ Object.entries(p.dslr_configs).forEach(([path,val])=>{ setDslrConfig(cameraSelect.value, path, val); }); setTimeout(loadDslrConfigs, 1200); }}
+function collectDslrConfigValues(){ const values={}; dslrConfigsDiv.querySelectorAll('.control-item').forEach(ci=>{ const sel=ci.querySelector('select'); const inp=ci.querySelector('input[type=text]'); if(sel && sel.dataset.path){ values[sel.dataset.path]=sel.value; } else if(inp && inp.dataset.path){ values[inp.dataset.path]=inp.value; } }); return values; }
+
+// Automation
+async function loadAutomation(){ try{ const s=await fetchJSON('/api/settings/automation'); autoRecord.checked=!!s.auto_record_with_teleprompter; autoStop.checked=!!s.auto_stop_with_teleprompter; autoFocus.checked=!!s.auto_focus_before_record; if(s.record_width) autoWidth.value=s.record_width; if(s.record_height) autoHeight.value=s.record_height; if(s.record_fps) autoFps.value=s.record_fps; if(s.selected_camera){ cameraSelect.value=s.selected_camera; } }catch(e){ console.warn('Automation load failed', e); } }
+saveAutomationBtn.addEventListener('click', async ()=>{ const payload={ auto_record_with_teleprompter:autoRecord.checked, auto_stop_with_teleprompter:autoStop.checked, auto_focus_before_record:autoFocus.checked, record_width:parseInt(autoWidth.value)||1920, record_height:parseInt(autoHeight.value)||1080, record_fps:parseInt(autoFps.value)||30, selected_camera:cameraSelect.value }; try{ await fetchJSON('/api/settings/automation',{method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)}); automationMsg.textContent='Saved.'; }catch(e){ automationMsg.textContent='Save failed'; }});
+
+loadProfiles();
+loadAutomation();
+
+async function loadDslrConfigs(){
+  const device = cameraSelect.value; if(!device) return;
+  dslrConfigsDiv.innerHTML='';
+  try {
+    const data = await fetchJSON('/api/dslr/configs?device='+encodeURIComponent(device));
+    const cfgs = data.configs || [];
+    if(!cfgs.length){ noDslrConfigs.style.display='block'; return; } else { noDslrConfigs.style.display='none'; }
+    cfgs.forEach(cfg => {
+      const wrap = document.createElement('div'); wrap.className='control-item';
+      const label = document.createElement('label'); label.textContent = cfg.label + (cfg.readonly?' (ro)':''); label.style.marginTop='0';
+      wrap.appendChild(label);
+      if(cfg.choices && cfg.choices.length){
+        const sel = document.createElement('select');
+        cfg.choices.forEach(ch => { const o=document.createElement('option'); o.value=ch; o.textContent=ch; if(ch===cfg.current) o.selected=true; sel.appendChild(o); });
+        sel.disabled = cfg.readonly;
+        sel.addEventListener('change', ()=>{ setDslrConfig(device, cfg.path, sel.value); });
+        wrap.appendChild(sel);
+      } else {
+        const inp = document.createElement('input'); inp.type='text'; inp.value=cfg.current||''; inp.disabled=cfg.readonly; inp.addEventListener('change', ()=>{ setDslrConfig(device, cfg.path, inp.value); }); wrap.appendChild(inp);
+      }
+      dslrConfigsDiv.appendChild(wrap);
+    });
+  } catch(e){ console.warn('No DSLR configs', e); noDslrConfigs.style.display='block'; }
+}
+
+async function setDslrConfig(device, path, value){
+  try { await fetchJSON('/api/dslr/set_config', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({device, path, value})}); }
+  catch(e){ console.warn('Failed to set DSLR config', path, e); }
+  setTimeout(loadDslrConfigs, 800);
+}
+</script>
+</body>
+</html>
