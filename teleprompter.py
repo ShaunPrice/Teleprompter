@@ -32,7 +32,7 @@ text_y = 600
 line_spacing = 60
 font_scale = 1.2
 font_thickness = 2
-alpha = 0.3
+alpha = 0.7
 frame_width = 1280
 frame_height = 720
 start_y = frame_height
@@ -96,11 +96,10 @@ if __name__ == "__main__":
                 # Create black background when no camera
                 frame = np.zeros((frame_height, frame_width, 3), dtype=np.uint8)
 
-            # Dim video by blending frame with black overlay
+            # Dim video
             overlay = frame.copy()
             cv2.rectangle(overlay, (0,0), (frame_width, frame_height), (0,0,0), -1)
-            # Swap weights: keep frame at alpha, overlay (black) at 1-alpha for proper dimming
-            frame = cv2.addWeighted(frame, alpha, overlay, 1 - alpha, 0)
+            frame = cv2.addWeighted(overlay,alpha,frame, 1-alpha,0)
 
             # Draw each line
             for l, line in enumerate(script_lines):

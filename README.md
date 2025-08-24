@@ -21,12 +21,6 @@ A robust, feature-rich teleprompter application with web-based management interf
 - **Remote Control**: Start and stop teleprompter sessions remotely
 - **Real-time Status**: Monitor teleprompter process status
 - **Responsive Design**: Works on desktop, tablet, and mobile devices
-- **Camera Recording Tab**: Dedicated camera control page for: 
-   - Automatic USB camera detection
-   - Start / Stop MP4 video recording
-   - Adjustable resolution & frame rate (e.g., 640x480, 1280x720, 1920x1080)
-   - Basic exposure / focus / gain / brightness (where supported)
-   - Uses OpenCV + v4l2-ctl (if available) for extended Linux controls
 
 ### 🖥️ Desktop Integration
 - **Application Shortcuts**: Native desktop entries for easy access
@@ -115,75 +109,6 @@ python setup.py
    - Log in with your system credentials
    - Create or edit prompt files
    - Start the teleprompter with one click
-   - Open the "Camera Control" tab to manage camera & recordings
-
-### Camera Control & Recording
-
-From the dashboard click the "Camera Control" button. The camera page provides:
-
-| Section | Description |
-|---------|-------------|
-| Detected Cameras | Enumerates supported DSLR (gphoto2) protocol cameras (USB/PTP) |
-| Recording Settings | Choose resolution, FPS, optional filename (auto timestamp if omitted) |
-| Camera Controls | Sliders for supported properties (focus/ exposure / brightness / gain etc.) |
-| Status Panel | Shows active recording metadata & output file path |
-
-Recordings are saved under the `recordings/` directory relative to the project root.
-
-#### DSLR (gphoto2) Support
-
-The camera page now focuses on DSLR / mirrorless devices detected via `gphoto2 --auto-detect` (e.g. Nikon / Canon in PTP mode). Standard `/dev/video*` webcams can still be used for the teleprompter overlay, but the recording tab enumerates DSLR protocol devices only.
-
-Features:
-1. Live View (explicitly toggled) – must be enabled before preview or streaming to avoid firing the shutter.
-2. Preview Stills – pulled from `--capture-preview` while live view is active (cached & rate-limited).
-3. Recording – Generates MP4 by stitching preview JPEG frames (fallback when true movie mode is unavailable). Attempts enabling movie mode config (`/main/actions/movie=1`) if the camera supports it.
-4. Autofocus – Tries common focus drive config paths.
-5. DSLR Configs – Selected capture and image settings (aperture / shutter / ISO / white balance, etc.) presented when available.
-6. Profiles – Save/load width/height/fps plus DSLR config selections.
-7. Automation – Optional auto record/stop with the teleprompter, auto focus before record.
-
-Important Behavior:
-* Live View is OFF by default to prevent unintended still photo captures (some Nikon bodies trigger a full capture if `--capture-preview` is issued before viewfinder mode).
-* Enable the "DSLR Live View" checkbox, then (optionally) start the Live Stream.
-* If Live View is disabled while streaming a DSLR, the stream is automatically stopped.
-* Recording FPS is approximate when using preview-frame assembly; actual cadence depends on camera preview delivery rate.
-
-System Dependencies (already added to `setup.sh` / `setup-pi.sh`):
-```bash
-sudo apt-get install gphoto2 libgphoto2-dev usbutils lsof
-```
-
-USB Permission Tips:
-* Ensure your user is in the `plugdev` group (scripts attempt to add it):
-```bash
-groups $USER
-sudo usermod -aG plugdev $USER  # then log out/in
-```
-* Kill auto-mounting GVFS processes if they lock the camera:
-```bash
-pkill -f gvfs-gphoto2 ; pkill -f gvfsd-mtp
-```
-
-Diagnostics Endpoint:
-Visit `/api/dslr/diagnostics` (while logged in) to retrieve raw `gphoto2 --auto-detect`, `--summary`, process list, and recent USB dmesg lines to troubleshoot claim issues.
-
-Limitations:
-* True hardware-encoded movie capture may not be supported via `gphoto2` for all models; preview stitching is a fallback.
-* Preview frame timestamps are not frame-perfect; minor jitter may occur.
-* Some settings paths differ across brands; only discovered & common ones are shown.
-* If live view times out on the body, re-enable the checkbox.
-
-Future Enhancements (ideas):
-* Native MJPEG or H.264 stream if the camera backend exposes it.
-* Asynchronous gphoto2 pipe capture to reduce temp file I/O.
-* Battery level / storage remaining indicators.
-
-Notes:
-1. Not all webcams expose every control—unsupported controls are omitted.
-2. On Linux, if `v4l2-ctl` is installed, additional controls may appear.
-3. Focus/aperture on many consumer webcams are fixed or automatic; manual control depends on hardware.
-4. Stopping the web server (or reboot) ends any active recording thread.
 
 ### Direct Command Line
 
@@ -296,7 +221,6 @@ teleprompter/
 │   ├── index.html              # Dashboard template
 │   ├── edit.html               # File editor template
 │   └── login.html              # Login template
-│   └── camera.html             # Camera control & recording
 ├── prompts/                     # Prompt files directory
 │   └── example.txt             # Example prompt file
 ├── teleprompter-venv/          # Virtual environment (created by setup)
@@ -339,19 +263,6 @@ The web interface uses **PAM (Pluggable Authentication Modules)** for secure aut
 # Test camera access
 ./check_presenter_keys.sh        # Linux/macOS
 check_presenter_keys.bat         # Windows
-# Verify camera enumeration & controls
-python -c "import cv2,sys;print('OpenCV',cv2.__version__);[print(i,cv2.VideoCapture(i).isOpened()) for i in range(5)]"
-
-If controls (focus/exposure) do not appear on Linux, install v4l2 utilities:
-```bash
-sudo apt-get install v4l2-utils
-```
-
-If recordings are blank or zero bytes:
-1. Ensure sufficient disk space.
-2. Try a lower resolution (e.g., 640x480) or FPS (15).
-3. Confirm the camera isn't simultaneously in use by the teleprompter overlay.
-4. Check terminal logs for OpenCV capture warnings.
 
 # Check camera permissions (Linux)
 ls /dev/video*

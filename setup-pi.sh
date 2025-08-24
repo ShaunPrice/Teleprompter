@@ -43,17 +43,6 @@ echo "🔄 Upgrading pip..."
 python -m pip install --upgrade pip
 
 # Install packages individually to handle potential issues
-echo "📋 Installing system packages (gphoto2, usb tools)..."
-sudo apt-get update
-sudo apt-get install -y gphoto2 libgphoto2-dev usbutils lsof
-if getent group plugdev > /dev/null 2>&1; then
-    if ! id -nG "$USER" | grep -qw plugdev; then
-        echo "➕ Adding $USER to plugdev group"
-        sudo usermod -aG plugdev "$USER"
-        echo "⚠️  Log out and back in for plugdev group changes to take effect"
-    fi
-fi
-
 echo "📋 Installing Python packages..."
 
 echo "  📦 Installing Flask..."
