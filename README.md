@@ -1,6 +1,6 @@
 # 🎬 Professional Teleprompter System
 
-A robust, feature-rich teleprompter application with web-based management interface, camera overlay, and professional presentation controls.
+A robust, feature‑rich teleprompter application with web‑based management interface, camera overlay, and professional presentation controls.
 
 ![Teleprompter Demo](https://img.shields.io/badge/Status-Production%20Ready-brightgreen)
 ![Python](https://img.shields.io/badge/Python-3.7%2B-blue)
@@ -9,362 +9,328 @@ A robust, feature-rich teleprompter application with web-based management interf
 ## ✨ Features
 
 ### 🎯 Core Functionality
-- **Smooth Text Scrolling**: Professional-grade scrolling with adjustable speed
-- **Camera Overlay**: Live presenter view with customizable positioning
-- **Keyboard Controls**: Real-time speed adjustment, pause/resume, manual scrolling
-- **Full-Screen Display**: Distraction-free presentation mode
-- **High-Quality Text Rendering**: Anti-aliased fonts with customizable sizes
+- Smooth text scrolling with adjustable speed
+- Camera overlay (presenter view) with customizable positioning
+- Keyboard controls for speed, pause/resume, and manual scrolling
+- Full‑screen presentation mode
+- High‑quality text rendering with configurable fonts/sizes
 
 ### 🌐 Web Interface
-- **Secure Authentication**: System-based login using PAM (Pluggable Authentication Modules)
-- **File Management**: Create, edit, and delete prompt files through a modern web interface
-- **Remote Control**: Start and stop teleprompter sessions remotely
-- **Real-time Status**: Monitor teleprompter process status
-- **Responsive Design**: Works on desktop, tablet, and mobile devices
+- Secure authentication via PAM (Linux)
+- Create, edit, and delete prompt files
+- Remote start/stop of teleprompter sessions
+- Live status panel
+- Responsive UI (desktop, tablet, mobile)
 
 ### 🖥️ Desktop Integration
-- **Application Shortcuts**: Native desktop entries for easy access
-- **Autostart Support**: Optional automatic startup on system boot
-- **Cross-Platform**: Works on Windows, Linux, and macOS
-- **Launcher Scripts**: Easy-to-use startup scripts
+- Application shortcuts / menu entries
+- Optional autostart on login
+- Cross‑platform launcher scripts (Windows/macOS/Linux)
+
+---
 
 ## 🚀 Quick Start
 
 ### Prerequisites
 - Python 3.7 or higher
-- Webcam (optional, but recommended for presenter overlay)
+- Optional webcam for presenter overlay
 - System with GUI support
 
 ### Installation
 
-#### Option 1: Automatic Setup (Recommended)
+#### Option 1 — Automatic Setup (Recommended)
 
-**Linux/macOS:**
+**Linux/macOS**
 ```bash
-# Clone or download the project
 git clone <repository-url>
 cd teleprompter
-
-# Run the setup script
 chmod +x setup.sh
 ./setup.sh
 ```
 
-**Raspberry Pi / Debian (if setup.sh fails):**
+**Raspberry Pi / Debian (if setup.sh fails)**
 ```bash
-# Use the Pi-specific setup script
 chmod +x setup-pi.sh
 ./setup-pi.sh
 ```
 
-**Windows:**
+**Windows**
 ```batch
-# Clone or download the project
 git clone <repository-url>
 cd teleprompter
-
-# Run the setup script
 python setup.py
 ```
 
-#### Option 2: Manual Setup
+#### Option 2 — Manual Setup
 
-1. **Create Virtual Environment:**
-   ```bash
-   python -m venv teleprompter-venv
-   
-   # Activate (Linux/macOS)
-   source teleprompter-venv/bin/activate
-   
-   # Activate (Windows)
-   teleprompter-venv\Scripts\activate
-   ```
+1) Create virtual environment
+```bash
+python -m venv teleprompter-venv
+# Activate (Linux/macOS)
+source teleprompter-venv/bin/activate
+# Activate (Windows)
+teleprompter-venv\Scripts\activate
+```
 
-2. **Install Dependencies:**
-   ```bash
-   pip install -r requirements.txt
-   ```
+2) Install dependencies
+```bash
+pip install -r requirements.txt
+```
 
-3. **System Dependencies (Linux only):**
-   ```bash
-   # Ubuntu/Debian
-   sudo apt-get install python3-dev libpam0g-dev
-   
-   # Red Hat/CentOS/Fedora
-   sudo yum install python3-devel pam-devel
-   ```
+3) System headers (Linux)
+```bash
+# Ubuntu/Debian
+sudo apt-get install python3-dev libpam0g-dev
+# RHEL/Fedora
+sudo yum install python3-devel pam-devel
+```
+
+---
 
 ## 📖 Usage
 
 ### Web Interface (Recommended)
 
-1. **Start the Web Interface:**
-   ```bash
-   ./start_web_interface.sh          # Linux/macOS
-   start_web_interface.bat           # Windows
-   ```
+1) Start the web interface
+```bash
+./start_web_interface.sh          # Linux/macOS
+start_web_interface.bat           # Windows
+```
 
-2. **Access the Interface:**
-   - Open your browser to: http://localhost:5000
-   - Log in with your system credentials
-   - Create or edit prompt files
-   - Start the teleprompter with one click
+2) Open: http://localhost:5000  
+   Log in with your system credentials, create/edit prompt files, and start the teleprompter.
 
 ### Direct Command Line
 
 ```bash
-# Basic usage
 ./start_teleprompter.sh prompts/example.txt
-
-# With options
 python teleprompter.py prompts/my-script.txt --speed 3 --font-size 3
-
-# Windowed mode (for testing)
 python teleprompter.py prompts/example.txt --windowed
-
-# Without camera overlay
 python teleprompter.py prompts/example.txt --no-camera
 ```
 
-### Keyboard Controls (During Presentation)
+### Keyboard Controls
 
 | Key | Action |
 |-----|--------|
-| `SPACE` | Pause/Resume scrolling |
-| `↑` / `↓` | Increase/Decrease scroll speed |
-| `←` / `→` | Manual scroll up/down |
-| `R` | Reset to beginning |
-| `ESC` / `Q` | Quit teleprompter |
+| `SPACE` | Pause/Resume |
+| `↑ / ↓` | Increase/Decrease speed |
+| `← / →` | Manual scroll |
+| `R` | Reset |
+| `ESC / Q` | Quit |
+
+---
 
 ## 🔧 Configuration
 
 ### Command Line Options
-
 ```
 python teleprompter.py [OPTIONS] [FILE]
-
-Options:
-  -s, --speed INTEGER         Scroll speed (1-10, default: 2)
-  -f, --font-size INTEGER     Font size scale (1-5, default: 2)
-  --no-camera                 Disable camera overlay
-  --windowed                  Run in windowed mode (not fullscreen)
-  --camera-pos [top-left|top-right|bottom-left|bottom-right]
-                             Camera overlay position (default: top-right)
+-s, --speed INTEGER        Scroll speed (1-10, default 2)
+-f, --font-size INTEGER    Font size scale (1-5, default 2)
+--no-camera                Disable overlay
+--windowed                 Run windowed
+--camera-pos [top-left|top-right|bottom-left|bottom-right]
 ```
-
 ### Web Interface Configuration
-
-The web interface runs on `http://localhost:5000` by default. To change the port or bind address, modify `web_interface.py`:
-
+Default endpoint is `http://localhost:5000`. To change host/port, edit `web_interface.py`:
 ```python
 app.run(host='0.0.0.0', port=5000, debug=False)
 ```
 
+---
+
 ## 🖥️ Desktop Integration
 
-### Application Menu Integration
-
-**Linux:**
+### Menu Integration (Linux)
 ```bash
-# Copy desktop entries to applications directory
 cp *.desktop ~/.local/share/applications/
-
-# Update desktop database
 update-desktop-database ~/.local/share/applications/
 ```
+macOS: create aliases/shortcuts.  
+Windows: right‑click a `.bat` file → **Create Shortcut**.
 
-**macOS:**
+### Autostart the Web Interface
+**Linux**
 ```bash
-# Desktop entries work similarly, or create aliases/shortcuts
-```
-
-**Windows:**
-```batch
-# Create shortcuts from the .bat files
-# Right-click -> Create Shortcut
-```
-
-### Autostart Setup
-
-**Linux (GNOME/KDE/XFCE):**
-```bash
-# Enable autostart of web interface
 mkdir -p ~/.config/autostart
 cp teleprompter-autostart.desktop ~/.config/autostart/
 ```
+macOS: add to **Login Items**.  
+Windows: `Win+R` → `shell:startup` → copy `start_web_interface.bat`.
 
-**macOS:**
+---
+
+## 🔄 Raspberry Pi Display Rotation (Wayland / labwc)
+
+When using a Raspberry Pi with the official 7" DSI touchscreen, you may need a permanent rotation (and optional mirroring) for use behind teleprompter glass. The display image and the touch input must both be transformed.
+
+### A) Rotate the Display at Login (labwc)
+Create a labwc autostart file and apply a transform to the **DSI-1** output:
 ```bash
-# Add to Login Items in System Preferences
-# Or use launchd for more control
+mkdir -p ~/.config/labwc
+nano ~/.config/labwc/autostart
+```
+Example for **180°** rotation (upside‑down):
+```sh
+#!/bin/sh
+wlr-randr --output DSI-1 --transform 180 &
+```
+- Use `90`, `180`, or `270` for rotation only.
+- Use `flipped-90`, `flipped-180`, or `flipped-270` for rotation **plus mirroring**.
+
+Make it executable and reboot (or log out/in):
+```bash
+chmod +x ~/.config/labwc/autostart
 ```
 
-**Windows:**
-```batch
-# Add to Startup folder
-# Win+R -> shell:startup
-# Copy start_web_interface.bat to the startup folder
+### B) Align the Touchscreen (official DSI panel)
+Edit the firmware config so touch events map to the rotated screen:
+```bash
+sudo nano /boot/firmware/config.txt
 ```
+Keep your existing graphics driver line:
+```ini
+dtoverlay=vc4-kms-v3d
+```
+Add a **second** overlay line for the 7" DSI panel (examples):
+- **180° rotation (no mirror):**
+  ```ini
+  dtoverlay=vc4-kms-dsi-7inch,invx,invy
+  ```
+- **90° rotation (no mirror):**
+  ```ini
+  dtoverlay=vc4-kms-dsi-7inch,swapxy
+  ```
+- **90° rotation + horizontal mirror (flipped-90):**
+  ```ini
+  dtoverlay=vc4-kms-dsi-7inch,swapxy,invx
+  ```
+
+> Tip: If finger motion feels reversed horizontally/vertically, toggle `invx`/`invy` accordingly.
+
+Reboot to apply:
+```bash
+sudo reboot
+```
+
+---
 
 ## 📁 Project Structure
-
 ```
 teleprompter/
 ├── teleprompter.py              # Main teleprompter application
 ├── web_interface.py             # Flask web interface
-├── setup.py                     # Cross-platform setup script
-├── setup.sh                     # Linux/macOS setup script
+├── setup.py                     # Cross‑platform setup script
+├── setup.sh                     # Linux/macOS setup
+├── setup-pi.sh                  # Raspberry Pi setup
 ├── requirements.txt             # Python dependencies
 ├── README.md                    # This file
 ├── .gitignore                   # Git ignore rules
-├── templates/                   # Web interface templates
-│   ├── index.html              # Dashboard template
-│   ├── edit.html               # File editor template
-│   └── login.html              # Login template
-├── prompts/                     # Prompt files directory
-│   └── example.txt             # Example prompt file
-├── teleprompter-venv/          # Virtual environment (created by setup)
-├── *.desktop                   # Desktop entries (created by setup)
-├── start_*.sh                  # Linux/macOS launcher scripts
-├── start_*.bat                 # Windows launcher scripts
-└── check_*.sh/bat              # Hardware test scripts
+├── templates/                   # Web templates
+│   ├── index.html
+│   ├── edit.html
+│   └── login.html
+├── prompts/
+│   └── example.txt
+├── *.desktop                    # Desktop entries
+├── start_*.sh                   # Linux/macOS launchers
+├── start_*.bat                  # Windows launchers
+└── check_*.sh / .bat            # Hardware test scripts
 ```
+
+---
 
 ## 🔐 Security
 
 ### Authentication
-
-The web interface uses **PAM (Pluggable Authentication Modules)** for secure authentication:
-
-- Uses your system's existing user accounts
-- No passwords stored by the application
-- Same authentication as your system login
+- Uses system accounts via PAM (Linux)
+- No application‑stored passwords
 - Secure session management
 
-### Network Security
+### Network
+- Binds to localhost by default
+- No external network required
+- Input validation and secure cookies
 
-- Web interface binds to localhost by default
-- No external network access required
-- Session-based authentication with secure cookies
-- Input validation on all forms
+### Files
+- Prompts stored locally in `prompts/`
+- File operations restricted to project directories
 
-### File Security
-
-- Prompt files are stored locally in the `prompts/` directory
-- No sensitive data transmitted over network
-- File operations restricted to designated directories
+---
 
 ## 🛠️ Troubleshooting
 
-### Common Issues
-
-**Camera Not Working:**
+**Camera not working**
 ```bash
-# Test camera access
-./check_presenter_keys.sh        # Linux/macOS
-check_presenter_keys.bat         # Windows
-
-# Check camera permissions (Linux)
+./check_presenter_keys.sh
 ls /dev/video*
-
-# Check camera usage
 lsof /dev/video0
 ```
 
-**Web Interface Login Issues:**
+**Web login issues**
 ```bash
-# Check PAM configuration (Linux)
 cat /etc/pam.d/login
-
-# Test system authentication
 su - yourusername
 ```
 
-**Performance Issues:**
-- Reduce font size for better performance
-- Close other applications using the camera
-- Lower scroll speed for smoother operation
+**Performance tips**
+- Reduce font size
+- Close other camera apps
+- Lower scroll speed
 - Use windowed mode for testing
 
-**Package Installation Errors:**
+**Package installation errors**
 ```bash
-# Linux: Install development headers
+# Linux headers
 sudo apt-get install python3-dev libpam0g-dev
-
-# macOS: Install Xcode command line tools
+# macOS tools
 xcode-select --install
-
-# Windows: Install Visual Studio Build Tools
+# Windows build tools
+# Install Visual Studio Build Tools (if required)
 ```
 
-**Raspberry Pi "externally-managed-environment" Error:**
+**Raspberry Pi “externally-managed-environment” error**
 ```bash
-# If setup.sh fails with externally managed environment error:
 chmod +x setup-pi.sh
 ./setup-pi.sh
-
-# Alternative: Manual setup with system packages
+# Or install system packages:
 sudo apt install python3-flask python3-opencv python3-numpy python3-pam
 ```
 
-### Hardware Requirements
-
-**Minimum:**
-- Python 3.7+
-- 2GB RAM
-- Basic graphics support
-- Optional: USB webcam
-
-**Recommended:**
-- Python 3.8+
-- 4GB RAM
-- Dedicated graphics card
-- HD webcam with good low-light performance
-- External monitor for teleprompter display
+---
 
 ## 🤝 Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-### Development Setup
 
 1. Fork the repository
 2. Create a virtual environment
 3. Install development dependencies
-4. Make your changes
-5. Test thoroughly
-6. Submit a pull request
+4. Make changes with tests/docs
+5. Open a Pull Request
 
 ### Coding Standards
-
-- Follow PEP 8 style guidelines
-- Add docstrings to functions and classes
-- Include type hints where appropriate
-- Write tests for new features
-- Update documentation as needed
-
-## 📄 License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## 🙏 Acknowledgments
-
-- **OpenCV** for computer vision capabilities
-- **Flask** for the web interface framework
-- **python-pam** for system authentication
-- **NumPy** for efficient array operations
-
-## 📞 Support
-
-If you encounter any issues or have questions:
-
-1. Check the troubleshooting section above
-2. Run the hardware test script: `./check_presenter_keys.sh`
-3. Check the project issues on the repository
-4. Create a new issue with detailed information about your problem
+- PEP 8 style
+- Docstrings and type hints
+- Tests for new features
+- Keep documentation up to date
 
 ---
 
-**Happy Presenting! 🎬**
+## 📄 License
+MIT — see `LICENSE`.
 
-*Professional teleprompter solution for content creators, broadcasters, and public speakers.*
+## 🙏 Acknowledgments
+- **OpenCV** — computer vision
+- **Flask** — web framework
+- **python‑pam** — system authentication
+- **NumPy** — array processing
+
+## 📞 Support
+1. Review this README (Troubleshooting section)
+2. Run `./check_presenter_keys.sh`
+3. Search existing issues
+4. Open a new issue with details
+
+---
+
+**Professional teleprompter solution for content creators, broadcasters, and public speakers.**

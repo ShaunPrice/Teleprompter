@@ -108,6 +108,59 @@ if __name__ == "__main__":
     frame_count = 0
     max_failed_reads = 100
     layout_initialized = False
+    debug_keys = False  # toggle runtime key logging with 'k'
+
+    # Page mode state (default enabled)
+    page_mode = True
+    page_anchor_y = 120  # align page anchor near top
+
+    def compute_page_anchors(lines):
+        anchors = []
+        # Always consider the start of file as an anchor
+        anchors.append(0)
+        for i, ln in enumerate(lines):
+            s = ln.lstrip()
+            if s.startswith("========"):
+                # Next non-marker line becomes an anchor if it exists
+                anchor = i + 1 if i + 1 < len(lines) else i
+                anchors.append(anchor)
+        # Deduplicate and sort
+        anchors = sorted(set([a for a in anchors if 0 <= a < len(lines)]))
+        return anchors
+
+    page_anchors = compute_page_anchors(script_lines)
+
+    def jump_to_anchor(anchor_idx):
+        global text_y
+        text_y = page_anchor_y - anchor_idx * line_spacing
+
+    def get_current_top_index():
+        # Estimate which line is aligned to the anchor (page_anchor_y)
+        return max(0, int(round((page_anchor_y - text_y) / float(line_spacing))))
+
+    def jump_next_page():
+        cur_top = get_current_top_index()
+        for a in page_anchors:
+            if a > cur_top + 1:  # strictly after current view
+                jump_to_anchor(a)
+                return
+        # If none found, stay at last page
+
+    def jump_prev_page():
+        cur_top = get_current_top_index()
+        prev = None
+        for a in page_anchors:
+            if a < cur_top:
+                prev = a
+            else:
+                break
+        if prev is not None:
+            jump_to_anchor(prev)
+
+    # If starting in page mode, align to the first page anchor immediately
+    if page_mode and page_anchors:
+        jump_to_anchor(page_anchors[0])
+        layout_initialized = True  # prevent first-frame override of text_y
 
     try:
         while True:
@@ -155,8 +208,12 @@ if __name__ == "__main__":
                 cv2.putText(frame, "No text visible (scrolling)...", (20, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (180, 180, 180), 2)
 
             # Help overlay
-            help_text = 'q: quit | f: fullscreen | < >: prev/next | ^ v : speed | space: pause'
+            help_text = 'q: quit | f: fullscreen | < >: prev/next | ^ v : speed | space: pause | p/Enter/F5: page mode'
             cv2.putText(frame, help_text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (100, 100, 100), 2)
+
+            # Page mode indicator
+            if page_mode:
+                cv2.putText(frame, 'PAGE MODE', (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 200, 255), 2)
 
             # Mirror/rotate for glass rigs
             # frame = cv2.flip(frame, 1)
@@ -166,12 +223,19 @@ if __name__ == "__main__":
             cv2.imshow("Teleprompter", frame)
 
             # Scroll text upward if not paused
-            if scrolling:
+            if scrolling and not page_mode:
                 text_y -= scroll_speed
             if text_y + len(script_lines) * line_spacing < 0:
                 text_y = fh
 
-            key = cv2.waitKey(30) & 0xFF
+            # Read key in both raw and masked forms (special keys need raw)
+            key_raw = cv2.waitKey(30)
+            key = key_raw & 0xFF
+
+            if debug_keys and key_raw != -1:
+                # Print both values to console for mapping presenters
+                print(f"[KEY] raw={key_raw} masked={key}")
+
             if key == ord('q'):
                 break
             elif key == ord('f'):
@@ -180,19 +244,55 @@ if __name__ == "__main__":
                     cv2.setWindowProperty("Teleprompter", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
                 else:
                     cv2.setWindowProperty("Teleprompter", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_NORMAL)
-            elif key in (32, 13, 27):  # Spacebar, Enter, Escape
+            elif key in (32, 27):  # Spacebar, Escape -> pause/resume scrolling
                 scrolling = not scrolling
-            elif key in (81,):  # Left arrow
-                scroll_speed = max(scroll_speed - 1, 1)
-            elif key in (83,):  # Right arrow
-                scroll_speed = min(scroll_speed + 1, 20)
-            elif key in (46, 98):  # '.' or 'b'
-                # Reload current file list and re-read the same index
-                files = sorted(glob.glob(os.path.join(prompt_dir, "*.txt")))
-                if files:
-                    idx = current_file_idx if current_file_idx < len(files) else 0
-                    script_lines = load_script(files[idx])
-                    text_y = fh
+            else:
+                # Cross-platform key groups
+                KEY_LEFT_RAW = {81, 2424832}
+                KEY_RIGHT_RAW = {83, 2555904}
+                KEY_PAGEUP_RAW = {65365, 2162688}
+                KEY_PAGEDOWN_RAW = {65366, 2228224}
+                KEY_PREV_ASCII = {60}  # '<'
+                KEY_NEXT_ASCII = {62}  # '>'
+                KEY_PLAY_RAW = {13, 0x74, 65474}  # Enter, F5 (common)
+
+                if (key_raw in KEY_LEFT_RAW) or (key_raw in KEY_PAGEUP_RAW) or (key in KEY_PREV_ASCII):
+                    if page_mode:
+                        jump_prev_page()
+                    else:
+                        scroll_speed = max(scroll_speed - 1, 1)
+                elif (key_raw in KEY_RIGHT_RAW) or (key_raw in KEY_PAGEDOWN_RAW) or (key in KEY_NEXT_ASCII):
+                    if page_mode:
+                        jump_next_page()
+                    else:
+                        scroll_speed = min(scroll_speed + 1, 20)
+                elif (key_raw in KEY_PLAY_RAW) or (key in (ord('p'), ord('P'))):
+                    # Toggle page mode; align appropriately
+                    page_mode = not page_mode
+                    cur_top = get_current_top_index()
+                    if page_mode:
+                        # Align to current page start
+                        candidate = 0
+                        for a in page_anchors:
+                            if a <= cur_top:
+                                candidate = a
+                            else:
+                                break
+                        jump_to_anchor(candidate)
+                    else:
+                        # Leaving page mode: keep current top line visible
+                        text_y = page_anchor_y - cur_top * line_spacing
+                elif key in (46, 98):  # '.' or 'b'
+                    # Reload current file list and re-read the same index
+                    files = sorted(glob.glob(os.path.join(prompt_dir, "*.txt")))
+                    if files:
+                        idx = current_file_idx if current_file_idx < len(files) else 0
+                        script_lines = load_script(files[idx])
+                        text_y = fh
+                        page_anchors = compute_page_anchors(script_lines)
+                elif key in (ord('k'), ord('K')):
+                    debug_keys = not debug_keys
+                    print(f"[INFO] Key debug {'ON' if debug_keys else 'OFF'}")
     finally:
         if cap is not None:
             cap.release()
