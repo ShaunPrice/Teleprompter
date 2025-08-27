@@ -3,7 +3,7 @@
 
 <div align="center">
 
-![Teleprompter](images/teleprompter.png)
+![Teleprompter](images/teleprompter.jpg)
 <em>Raspberry Pi 4 2G with Touch Screen</br>
 Half Morror Teleprompter Screen</em>
 </p>
