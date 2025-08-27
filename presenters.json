@@ -1,0 +1,12 @@
+{
+  "logitech_r800": {
+    "KEY_BLACK_RAW": [98, 66, 8, 65480, 46],
+    "KEY_LEFT_RAW": [81, 2424832, 65361],
+    "KEY_RIGHT_RAW": [83, 2555904, 65363],
+    "KEY_PAGEUP_RAW": [65365, 2162688],
+    "KEY_PAGEDOWN_RAW": [65366, 2228224],
+    "KEY_PLAY_RAW": [13, 116, 65474, 194],
+    "KEY_PREV_ASCII": [60, 85],
+    "KEY_NEXT_ASCII": [62, 86]
+  }
+}

@@ -29,6 +29,8 @@ focus_on = True
 _state_last_mtime = 0.0
 _state_last_check = 0.0
 presenter_profile = "auto"  # auto | generic | logitech_r800
+PRESENTERS_CONFIG = Path(__file__).parent / "presenters.json"
+_presenter_maps = {}
 #####################################
 
 # Directory containing prompt text files
@@ -186,6 +188,15 @@ if __name__ == "__main__":
 
     # Runtime state from web UI (focus/flip)
     RUNTIME_STATE = Path(__file__).parent / "runtime_state.json"
+    # Load presenter mappings from config (JSON). Generic is kept in code.
+    try:
+        if PRESENTERS_CONFIG.exists():
+            with open(PRESENTERS_CONFIG, 'r', encoding='utf-8') as pf:
+                data = json.load(pf)
+                if isinstance(data, dict):
+                    _presenter_maps = data
+    except Exception:
+        _presenter_maps = {}
     def _maybe_load_state(now):
         """Reload focus/flip from runtime_state.json if it changed (checked at most 2x/sec)."""
         global _state_last_mtime, focus_on, flip_video, _state_last_check, presenter_profile
@@ -323,18 +334,20 @@ if __name__ == "__main__":
                 except Exception:
                     pass
 
-            # Presenter profile specific mappings
+            # Presenter profile specific mappings from config (if not generic)
             # Known raw codes often observed for different platforms; the 'k' logger can help refine
-            if presenter_profile == "logitech_r800":
-                KEY_BLACK_RAW = {98, 66, 8, 65480, 46}  # include '.' (46) as observed screen button
-                KEY_LEFT_RAW = {81, 2424832, 65361}
-                KEY_RIGHT_RAW = {83, 2555904, 65363}
-                KEY_PAGEUP_RAW = {65365, 2162688}
-                KEY_PAGEDOWN_RAW = {65366, 2228224}
-                KEY_PLAY_RAW = {13, 0x74, 65474, 194}  # include observed 194 as Play/Page toggle
-                KEY_PREV_ASCII = {60, 85}  # '<' and observed 'U'
-                KEY_NEXT_ASCII = {62, 86}  # '>' and observed 'V'
+            if presenter_profile and presenter_profile != "generic":
+                m = _presenter_maps.get(presenter_profile) or {}
+                KEY_BLACK_RAW = set(m.get("KEY_BLACK_RAW", []))
+                KEY_LEFT_RAW = set(m.get("KEY_LEFT_RAW", []))
+                KEY_RIGHT_RAW = set(m.get("KEY_RIGHT_RAW", []))
+                KEY_PAGEUP_RAW = set(m.get("KEY_PAGEUP_RAW", []))
+                KEY_PAGEDOWN_RAW = set(m.get("KEY_PAGEDOWN_RAW", []))
+                KEY_PLAY_RAW = set(m.get("KEY_PLAY_RAW", []))
+                KEY_PREV_ASCII = set(m.get("KEY_PREV_ASCII", []))
+                KEY_NEXT_ASCII = set(m.get("KEY_NEXT_ASCII", []))
             else:
+                # Generic built-in defaults
                 KEY_BLACK_RAW = {98, 66}
                 KEY_LEFT_RAW = {81, 2424832}
                 KEY_RIGHT_RAW = {83, 2555904}
@@ -355,8 +368,8 @@ if __name__ == "__main__":
             elif key == ord('f'):
                 focus_on = not focus_on
             elif key in (32, 27):  # Spacebar, Escape -> pause/resume scrolling
-                # R800 sends ESC to stop slideshow; use ESC as Page Mode toggle instead
-                if presenter_profile == "logitech_r800" and key == 27:
+                # If Escape is used as Play/Page toggle in current mapping, don't use it for pause.
+                if key == 27 and (27 in KEY_PLAY_RAW or key_raw in KEY_PLAY_RAW):
                     pass  # handled below as a PAGE MODE toggle
                 else:
                     scrolling = not scrolling
@@ -372,7 +385,7 @@ if __name__ == "__main__":
                         jump_next_page()
                     else:
                         scroll_speed = min(scroll_speed + 1, 20)
-                elif (key_raw in KEY_PLAY_RAW) or (key in (ord('p'), ord('P'))) or (presenter_profile == "logitech_r800" and key == 27):
+                elif (key_raw in KEY_PLAY_RAW) or (key in (ord('p'), ord('P'))):
                     # Toggle page mode; align appropriately
                     page_mode = not page_mode
                     cur_top = get_current_top_index()
@@ -391,7 +404,7 @@ if __name__ == "__main__":
                 elif (key_raw in KEY_BLACK_RAW) or (key in (ord('b'), ord('B'))):
                     # Toggle blackout mode
                     blackout_on = not blackout_on
-                elif (key in (46,) and presenter_profile != "logitech_r800") or key in (ord('r'), ord('R')):
+                elif ((key in (46,) and 46 not in KEY_BLACK_RAW) or key in (ord('r'), ord('R'))):
                     # Reload current file list and re-read the same index
                     files = sorted(glob.glob(os.path.join(prompt_dir, "*.txt")))
                     if files:

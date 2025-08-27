@@ -23,6 +23,7 @@ A robust, feature‑rich teleprompter application with web‑based management in
   - Focus Assist toggle (default ON)
   - Flip Video (horizontal flip) toggle
   - Web toggles sync to the desktop app via a tiny `runtime_state.json`
+  - Presenter Profile selector (auto | generic | logitech_r800); profiles are loaded from `presenters.json`
 
 ### 🖥️ Desktop Integration
 - Cross‑platform launcher scripts (Windows/macOS/Linux)
@@ -121,6 +122,7 @@ python teleprompter.py check_keys                           # Presenter key insp
 - In Page Mode: Left/Right or PageUp/PageDown jumps to previous/next page (defined by `========` separators)
 - When NOT in Page Mode: Left/Right adjusts scroll speed
 - k: toggle key logger (prints raw and masked key codes to console; useful for mapping presenter buttons)
+  - If running as a service, key logs also append to `teleprompter.log`
 
 ---
 
@@ -141,6 +143,7 @@ app.run(host='0.0.0.0', port=5000, debug=False)
 - Focus Assist: mirrors the in‑app 'f' toggle; default ON
 - Flip Video: horizontal flip for the camera/background feed
 - State is persisted to `runtime_state.json` and polled by the desktop app (about twice per second)
+ - Presenter Profile: select a profile; mappings come from `presenters.json` (generic is built-in and not in the file)
 
 ---
 
@@ -225,6 +228,7 @@ sudo reboot
 teleprompter/
 ├── teleprompter.py              # Main teleprompter application
 ├── web_interface.py             # Flask web interface
+├── presenters.json              # Presenter mappings (non-generic)
 ├── setup.py                     # Cross‑platform setup script
 ├── setup.sh                     # Linux/macOS setup
 ├── setup-pi.sh                  # Raspberry Pi setup
@@ -280,6 +284,14 @@ python teleprompter.py check_keys
 ./check_presenter_keys.bat        # Windows
 ```
 Adjust presenter mappings based on console output if needed.
+
+### Add or adjust a presenter profile
+1) Open `presenters.json` and copy an existing block (e.g., `logitech_r800`).
+2) Change the key sets using observed codes from the key logger:
+  - KEY_*_RAW hold raw codes (from waitKey) for special keys
+  - KEY_PREV_ASCII / KEY_NEXT_ASCII hold ASCII key codes for '<' / '>' style keys
+3) Save the file; the teleprompter auto-reloads configuration on the fly.
+4) In the web UI, pick your profile in Display Controls and click Apply.
 
 **Web login issues**
 ```bash
