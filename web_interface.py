@@ -12,19 +12,17 @@ import platform
 from datetime import datetime
 from pathlib import Path
 from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify
+import json
 
 # Import pam only on non-Windows systems
 if platform.system() != "Windows":
     try:
-        import pam
+        import pam  # type: ignore
         PAM_AVAILABLE = True
         print("[OK] PAM authentication available")
-    except ImportError:
-        PAM_AVAILABLE = False
-        print("[WARNING] python-pam not available. Authentication will be simplified.")
     except Exception as e:
         PAM_AVAILABLE = False
-        print(f"[WARNING] PAM error ({e}). Authentication will be simplified.")
+        print(f"[WARNING] PAM not available ({e}). Authentication will be simplified.")
 else:
     PAM_AVAILABLE = False
     print("[INFO] Running on Windows - Authentication disabled for development.")
@@ -46,9 +44,32 @@ def datetime_filter(timestamp):
 PROMPTS_DIR = Path(__file__).parent / "prompts"
 TELEPROMPTER_SCRIPT = Path(__file__).parent / "teleprompter.py"
 VENV_PATH = Path(__file__).parent / "teleprompter-venv"
+RUNTIME_STATE = Path(__file__).parent / "runtime_state.json"
 
 # Global variable to track teleprompter process
 teleprompter_process = None
+
+# UI toggle state defaults
+focus_on = True
+flip_video = False
+
+def load_runtime_state():
+    global focus_on, flip_video
+    try:
+        if RUNTIME_STATE.exists():
+            with open(RUNTIME_STATE, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                focus_on = bool(data.get('focus_on', focus_on))
+                flip_video = bool(data.get('flip_video', flip_video))
+    except Exception as e:
+        print(f"[WARN] Failed to load runtime state: {e}")
+
+def save_runtime_state():
+    try:
+        with open(RUNTIME_STATE, 'w', encoding='utf-8') as f:
+            json.dump({'focus_on': focus_on, 'flip_video': flip_video}, f)
+    except Exception as e:
+        print(f"[WARN] Failed to save runtime state: {e}")
 
 def authenticate_user(username, password):
     """Authenticate user using PAM (simplified fallback if PAM unavailable)."""
@@ -97,6 +118,7 @@ def index():
     """Main dashboard."""
     # Ensure prompts directory exists
     PROMPTS_DIR.mkdir(exist_ok=True)
+    load_runtime_state()
     
     # Get list of prompt files (just filenames for template compatibility)
     prompt_files = []
@@ -112,7 +134,9 @@ def index():
     
     return render_template('index.html', 
                          prompt_files=prompt_files, 
-                         teleprompter_running=teleprompter_running)
+                         teleprompter_running=teleprompter_running,
+                         focus_on=focus_on,
+                         flip_video=flip_video)
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -355,6 +379,40 @@ def teleprompter_status():
         return jsonify({'running': True, 'pid': teleprompter_process.pid})
     else:
         return jsonify({'running': False})
+
+@app.route('/focus_toggle')
+@require_login
+def focus_toggle():
+    """Toggle focus assist mode."""
+    global focus_on
+    focus_on = not focus_on
+    save_runtime_state()
+    return jsonify({'focus_on': focus_on})
+
+@app.route('/get_focus_status')
+@require_login
+def get_focus_status():
+    """Get focus assist mode status."""
+    global focus_on
+    load_runtime_state()
+    return jsonify({'focus_on': focus_on})
+
+@app.route('/flip_video_toggle')
+@require_login
+def flip_video_toggle():
+    """Toggle video flip mode."""
+    global flip_video
+    flip_video = not flip_video
+    save_runtime_state()
+    return jsonify({'flip_video': flip_video})
+
+@app.route('/get_flip_status')
+@require_login
+def get_flip_status():
+    """Get video flip mode status."""
+    global flip_video
+    load_runtime_state()
+    return jsonify({'flip_video': flip_video})
 
 def create_example_file():
     """Create an example prompt file if none exist."""

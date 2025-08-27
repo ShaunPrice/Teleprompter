@@ -10,6 +10,25 @@ import time
 import os
 import glob
 import argparse
+import json
+from pathlib import Path
+
+#####################################
+# Screen mirroring and rotation
+#   Can be set in the application
+#   or on the Raspberry Pi
+#####################################
+enable_mirror_rotate = False
+output_flip = 1    # Mirror = 1
+output_rotate = cv2.ROTATE_180
+# New: simple horizontal flip control exposed to web UI
+flip_video = False
+# Focus assist default (also controlled by web UI)
+focus_on = True
+# Runtime state timestamps
+_state_last_mtime = 0.0
+_state_last_check = 0.0
+#####################################
 
 # Directory containing prompt text files
 prompt_dir = "prompts"
@@ -109,6 +128,7 @@ if __name__ == "__main__":
     max_failed_reads = 100
     layout_initialized = False
     debug_keys = False  # toggle runtime key logging with 'k'
+    focus_on = True     # Laplacian focus overlay (toggle with 'f')
 
     # Page mode state (default enabled)
     page_mode = True
@@ -162,6 +182,27 @@ if __name__ == "__main__":
         jump_to_anchor(page_anchors[0])
         layout_initialized = True  # prevent first-frame override of text_y
 
+    # Runtime state from web UI (focus/flip)
+    RUNTIME_STATE = Path(__file__).parent / "runtime_state.json"
+    def _maybe_load_state(now):
+        """Reload focus/flip from runtime_state.json if it changed (checked at most 2x/sec)."""
+        global _state_last_mtime, focus_on, flip_video, _state_last_check
+        if now - _state_last_check < 0.5:
+            return
+        _state_last_check = now
+        try:
+            if RUNTIME_STATE.exists():
+                m = RUNTIME_STATE.stat().st_mtime
+                if m > _state_last_mtime:
+                    with open(RUNTIME_STATE, 'r', encoding='utf-8') as f:
+                        data = json.load(f)
+                    focus_on = bool(data.get('focus_on', focus_on))
+                    flip_video = bool(data.get('flip_video', flip_video))
+                    _state_last_mtime = m
+        except Exception:
+            # ignore state errors
+            pass
+
     try:
         while True:
             # Background frame
@@ -180,6 +221,12 @@ if __name__ == "__main__":
                         continue
                 else:
                     frame_count = 0
+                    frame = cv2.flip(frame, 0)
+
+                frame = cv2.rotate(frame, cv2.ROTATE_180)
+
+                # Simple horizontal flip controlled by web UI
+                if not flip_video:
                     frame = cv2.flip(frame, 1)
             else:
                 frame = np.zeros((frame_height, frame_width, 3), dtype=np.uint8)
@@ -190,9 +237,27 @@ if __name__ == "__main__":
                 text_y = fh
                 layout_initialized = True
 
+            # Keep a copy for focus edges before dimming
+            pre_dim_frame = frame.copy()
+
             # Dim video by blending with black
             overlay = np.zeros_like(frame)
             frame = cv2.addWeighted(frame, 1 - alpha, overlay, alpha, 0)
+
+            # Focus assist: Laplacian magnitude overlay (on by default)
+            if focus_on:
+                try:
+                    gray = cv2.cvtColor(pre_dim_frame, cv2.COLOR_BGR2GRAY)
+                    lap16 = cv2.Laplacian(gray, cv2.CV_16S, ksize=3)
+                    lap = cv2.convertScaleAbs(lap16)
+                    # Otsu to adaptively pick a focus threshold across lighting/cameras
+                    _, mask = cv2.threshold(lap, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
+                    red_layer = np.zeros_like(frame)
+                    red_layer[:, :, 2] = mask  # red channel
+                    frame = cv2.addWeighted(frame, 1.0, red_layer, 0.6, 0)
+                except Exception:
+                    # If anything goes wrong, disable to avoid loop failures
+                    focus_on = False
 
             # Draw text lines centered
             lines_drawn = 0
@@ -208,16 +273,17 @@ if __name__ == "__main__":
                 cv2.putText(frame, "No text visible (scrolling)...", (20, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (180, 180, 180), 2)
 
             # Help overlay
-            help_text = 'q: quit | f: fullscreen | < >: prev/next | ^ v : speed | space: pause | p/Enter/F5: page mode'
-            cv2.putText(frame, help_text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (100, 100, 100), 2)
+            help_text = 'q: quit | o: fullscreen | f: focus | < >: prev/next | ^ v : speed | space: pause | p/Enter/F5: page mode'
+            cv2.putText(frame, help_text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (100, 100, 100), 2)
 
             # Page mode indicator
             if page_mode:
-                cv2.putText(frame, 'PAGE MODE', (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 200, 255), 2)
+                cv2.putText(frame, 'PAGE MODE', (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 200, 255), 2)
 
-            # Mirror/rotate for glass rigs
-            # frame = cv2.flip(frame, 1)
-            # frame = cv2.rotate(frame, cv2.ROTATE_180)
+            # Mirror/rotate for glass rigs (legacy)
+            if enable_mirror_rotate:
+                frame = cv2.flip(frame, output_flip)
+                frame = cv2.rotate(frame, output_rotate)
 
             # Show
             cv2.imshow("Teleprompter", frame)
@@ -227,6 +293,9 @@ if __name__ == "__main__":
                 text_y -= scroll_speed
             if text_y + len(script_lines) * line_spacing < 0:
                 text_y = fh
+
+            # Periodically reload state from web UI
+            _maybe_load_state(time.time())
 
             # Read key in both raw and masked forms (special keys need raw)
             key_raw = cv2.waitKey(30)
@@ -238,12 +307,14 @@ if __name__ == "__main__":
 
             if key == ord('q'):
                 break
-            elif key == ord('f'):
+            elif key == ord('o'):
                 fullscreen = not fullscreen
                 if fullscreen:
                     cv2.setWindowProperty("Teleprompter", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
                 else:
                     cv2.setWindowProperty("Teleprompter", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_NORMAL)
+            elif key == ord('f'):
+                focus_on = not focus_on
             elif key in (32, 27):  # Spacebar, Escape -> pause/resume scrolling
                 scrolling = not scrolling
             else:

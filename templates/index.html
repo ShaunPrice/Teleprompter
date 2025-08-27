@@ -141,6 +141,19 @@
             border: 1px solid #f5c6cb;
             color: #721c24;
         }
+        .control-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 10px 0;
+        }
+        .control-row span {
+            font-weight: 600;
+            color: #333;
+        }
+        .file-name-inline {
+            margin-left:10px; color:#555;
+        }
     </style>
 </head>
 <body>
@@ -168,14 +181,26 @@
             {% endif %}
         </div>
 
+        <!-- Display Controls -->
+        <div class="section">
+            <h2>Display Controls</h2>
+            <div class="control-row">
+                <span>Focus Assist</span>
+                <button id="focusBtn" class="btn btn-secondary" type="button" onclick="toggleFocus()" data-state="{{ 'on' if focus_on else 'off' }}">...</button>
+            </div>
+            <div class="control-row">
+                <span>Flip Video</span>
+                <button id="flipBtn" class="btn btn-secondary" type="button" onclick="toggleFlip()" data-state="{{ 'on' if flip_video else 'off' }}">...</button>
+            </div>
+        </div>
+
         <!-- File Management -->
         <div class="section">
             <h2>Prompt Files</h2>
             
-            {% if prompt_files %}
-                <ul class="file-list">
-                {% for file in prompt_files %}
-                    <li class="file-item">
+            {% if prompt_files -%}
+                <div class="file-list">{%- for file in prompt_files -%}
+                    <div class="file-item">
                         <div>
                             <span class="file-name">{{ file }}</span>
                         </div>
@@ -187,10 +212,10 @@
                             <a href="{{ url_for('delete_file', filename=file) }}" class="btn btn-danger"
                                onclick="return confirm('Are you sure you want to delete {{ file }}?')">Delete</a>
                         </div>
-                    </li>
-                {% endfor %}
-                </ul>
-            {% else %}
+                    </div>
+                {%- endfor %}</ul>
+                </div>
+            {% else -%}
                 <p>No prompt files found. Create one below.</p>
             {% endif %}
         </div>
@@ -216,7 +241,7 @@
                     <div class="form-group">
                         <label for="file">Choose text file:</label>
                         <input type="file" id="file" name="file" accept=".txt" required>
-                        <span id="fileName" style="margin-left:10px;color:#555;"></span>
+                        <span id="fileName" class="file-name-inline"></span>
                     </div>
                     <button type="submit" class="btn btn-secondary">Upload</button>
                 </form>
@@ -240,6 +265,58 @@
         setTimeout(function() {
             window.location.reload();
         }, 10000);
+
+        // Helpers to set button appearance
+        function setFocus(on) {
+            const b = document.getElementById('focusBtn');
+            b.textContent = on ? 'On' : 'Off';
+            b.className = 'btn ' + (on ? 'btn-success' : 'btn-secondary');
+        }
+        function setFlip(on) {
+            const b = document.getElementById('flipBtn');
+            b.textContent = on ? 'On' : 'Off';
+            b.className = 'btn ' + (on ? 'btn-success' : 'btn-secondary');
+        }
+
+    async function refreshFocus() {
+            try {
+        const r = await fetch("{{ url_for('get_focus_status') }}");
+                const j = await r.json();
+                setFocus(!!j.focus_on);
+            } catch {}
+        }
+        async function refreshFlip() {
+            try {
+        const r = await fetch("{{ url_for('get_flip_status') }}");
+                const j = await r.json();
+                setFlip(!!j.flip_video);
+            } catch {}
+        }
+
+        async function toggleFocus() {
+            try {
+        const r = await fetch("{{ url_for('focus_toggle') }}");
+                const j = await r.json();
+                setFocus(!!j.focus_on);
+            } catch {}
+        }
+        async function toggleFlip() {
+            try {
+        const r = await fetch("{{ url_for('flip_video_toggle') }}");
+                const j = await r.json();
+                setFlip(!!j.flip_video);
+            } catch {}
+        }
+
+        // Initialize on load
+        (function init() {
+            // Initial states from data attributes
+            setFocus(document.getElementById('focusBtn').dataset.state === 'on');
+            setFlip(document.getElementById('flipBtn').dataset.state === 'on');
+            // Then poll server to ensure sync
+            refreshFocus();
+            refreshFlip();
+        })();
     </script>
 </body>
 </html>
