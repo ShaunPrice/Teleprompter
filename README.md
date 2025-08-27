@@ -3,29 +3,30 @@
 A robust, feature‑rich teleprompter application with web‑based management interface, camera overlay, and professional presentation controls.
 
 ![Teleprompter Demo](https://img.shields.io/badge/Status-Production%20Ready-brightgreen)
-![Python](https://img.shields.io/badge/Python-3.7%2B-blue)
+![Python](https://img.shields.io/badge/Python-3.10%2B-blue)
 ![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey)
 
 ## ✨ Features
 
 ### 🎯 Core Functionality
-- Smooth text scrolling with adjustable speed
-- Camera overlay (presenter view) with customizable positioning
-- Keyboard controls for speed, pause/resume, and manual scrolling
+- Page Mode (default ON) using section markers: a line starting with `========` defines the next page
+- Smooth text scrolling with adjustable speed when page mode is OFF
+- Camera overlay (presenter view)
 - Full‑screen presentation mode
-- High‑quality text rendering with configurable fonts/sizes
+- High‑quality text rendering
 
 ### 🌐 Web Interface
-- Secure authentication via PAM (Linux)
-- Create, edit, and delete prompt files
+- Authentication via PAM on Linux (on Windows/macOS, simple dev auth)
+- Create, edit, upload, and delete prompt files
 - Remote start/stop of teleprompter sessions
-- Live status panel
-- Responsive UI (desktop, tablet, mobile)
+- Live status panel + Display Controls:
+  - Focus Assist toggle (default ON)
+  - Flip Video (horizontal flip) toggle
+  - Web toggles sync to the desktop app via a tiny `runtime_state.json`
 
 ### 🖥️ Desktop Integration
-- Application shortcuts / menu entries
-- Optional autostart on login
 - Cross‑platform launcher scripts (Windows/macOS/Linux)
+- Optional autostart on login
 
 ---
 
@@ -97,27 +98,29 @@ sudo yum install python3-devel pam-devel
 start_web_interface.bat           # Windows
 ```
 
-2) Open: http://localhost:5000  
-   Log in with your system credentials, create/edit prompt files, and start the teleprompter.
+2) Open: http://localhost:5000
+  - Log in (Linux uses PAM; on Windows/macOS, dev auth accepts any non-empty username/password)
+  - Create/edit prompt files and start the teleprompter
 
 ### Direct Command Line
 
 ```bash
-./start_teleprompter.sh prompts/example.txt
-python teleprompter.py prompts/my-script.txt --speed 3 --font-size 3
-python teleprompter.py prompts/example.txt --windowed
+./start_teleprompter.sh prompts/example.txt                 # Linux/macOS
+python teleprompter.py prompts/example.txt --windowed       # Cross‑platform
 python teleprompter.py prompts/example.txt --no-camera
+python teleprompter.py check_keys                           # Presenter key inspector
 ```
 
-### Keyboard Controls
+### Keyboard and Presenter Controls
 
-| Key | Action |
-|-----|--------|
-| `SPACE` | Pause/Resume |
-| `↑ / ↓` | Increase/Decrease speed |
-| `← / →` | Manual scroll |
-| `R` | Reset |
-| `ESC / Q` | Quit |
+- q: quit
+- o: toggle fullscreen
+- f: toggle Focus Assist (red Laplacian edges)
+- space / esc: pause/resume scrolling
+- p / Enter / F5: toggle Page Mode (default ON)
+- In Page Mode: Left/Right or PageUp/PageDown jumps to previous/next page (defined by `========` separators)
+- When NOT in Page Mode: Left/Right adjusts scroll speed
+- k: toggle key logger (prints raw and masked key codes to console; useful for mapping presenter buttons)
 
 ---
 
@@ -125,18 +128,19 @@ python teleprompter.py prompts/example.txt --no-camera
 
 ### Command Line Options
 ```
-python teleprompter.py [OPTIONS] [FILE]
--s, --speed INTEGER        Scroll speed (1-10, default 2)
--f, --font-size INTEGER    Font size scale (1-5, default 2)
---no-camera                Disable overlay
---windowed                 Run windowed
---camera-pos [top-left|top-right|bottom-left|bottom-right]
+python teleprompter.py [FILE] [--no-camera] [--windowed]
 ```
+
 ### Web Interface Configuration
 Default endpoint is `http://localhost:5000`. To change host/port, edit `web_interface.py`:
 ```python
 app.run(host='0.0.0.0', port=5000, debug=False)
 ```
+
+### Display Controls (Web)
+- Focus Assist: mirrors the in‑app 'f' toggle; default ON
+- Flip Video: horizontal flip for the camera/background feed
+- State is persisted to `runtime_state.json` and polled by the desktop app (about twice per second)
 
 ---
 
@@ -233,6 +237,7 @@ teleprompter/
 │   └── login.html
 ├── prompts/
 │   └── example.txt
+├── runtime_state.json           # Web <-> desktop state (created at runtime)
 ├── *.desktop                    # Desktop entries
 ├── start_*.sh                   # Linux/macOS launchers
 ├── start_*.bat                  # Windows launchers
@@ -245,6 +250,7 @@ teleprompter/
 
 ### Authentication
 - Uses system accounts via PAM (Linux)
+- On Windows/macOS, development auth accepts any non‑empty username/password
 - No application‑stored passwords
 - Secure session management
 
@@ -263,10 +269,17 @@ teleprompter/
 
 **Camera not working**
 ```bash
-./check_presenter_keys.sh
 ls /dev/video*
 lsof /dev/video0
 ```
+
+**Presenter remote not mapping keys**
+```bash
+# Inspect raw key codes (run one of these):
+python teleprompter.py check_keys
+./check_presenter_keys.bat        # Windows
+```
+Adjust presenter mappings based on console output if needed.
 
 **Web login issues**
 ```bash
@@ -333,4 +346,4 @@ MIT — see `LICENSE`.
 
 ---
 
-**Professional teleprompter solution for content creators, broadcasters, and public speakers.**
+**Professional teleprompter solution with web control and presenter support.**
