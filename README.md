@@ -1,10 +1,24 @@
 # 🎬 Professional Teleprompter System
 
+
+<div align="center">
+
+![Teleprompter](images/teleprompter.png)
+<em>Raspberry Pi 4 2G with Touch Screen</br>
+Half Morror Teleprompter Screen</em>
+</p>
+
 A robust, feature‑rich teleprompter application with web‑based management interface, camera overlay, and professional presentation controls.
+
+<em><strong>Note:</strong> The Teleprompter has only been tested on a Raspberry Pi 2G RAM with a Raspberry Pi touch screen.</em>
 
 ![Teleprompter Demo](https://img.shields.io/badge/Status-Production%20Ready-brightgreen)
 ![Python](https://img.shields.io/badge/Python-3.10%2B-blue)
 ![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey)
+
+## 🧪 Reference hardware (designed and tested)
+- Raspberry Pi 4 with 2 GB RAM and official 7" touchscreen
+- HDMI input via low‑cost HDMI→USB video capture adapter (tested with: https://www.amazon.com.au/Portable-Camcorder-Definition-Acquisition-Broadcasting/dp/B08CDSXV47)
 
 ## ✨ Features
 
@@ -24,6 +38,15 @@ A robust, feature‑rich teleprompter application with web‑based management in
   - Flip Video (horizontal flip) toggle
   - Web toggles sync to the desktop app via a tiny `runtime_state.json`
   - Presenter Profile selector (auto | generic | logitech_r800); profiles are loaded from `presenters.json`
+
+  <div align="center">
+![Teleprompter](images/web_interface_login.png)
+<em>Login Page</em>
+![Teleprompter](images/web_interface.png)
+<em>Login Page</em>
+![Teleprompter](images/web_interface_edit.png)
+<em>Login Page</em>
+</p>
 
 ### 🖥️ Desktop Integration
 - Cross‑platform launcher scripts (Windows/macOS/Linux)
