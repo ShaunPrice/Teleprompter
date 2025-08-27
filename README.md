@@ -1,12 +1,8 @@
 # 🎬 Professional Teleprompter System
 
-
-<div align="center">
-
 ![Teleprompter](images/teleprompter.jpg)
-<em>Raspberry Pi 4 2G with Touch Screen</br>
-Half Morror Teleprompter Screen</em>
-</p>
+Raspberry Pi 4 2G with Touch Screen
+Half Morror Teleprompter Screen
 
 A robust, feature‑rich teleprompter application with web‑based management interface, camera overlay, and professional presentation controls.
 
@@ -18,7 +14,8 @@ A robust, feature‑rich teleprompter application with web‑based management in
 
 ## 🧪 Reference hardware (designed and tested)
 - Raspberry Pi 4 with 2 GB RAM and official 7" touchscreen
-- HDMI input via low‑cost HDMI→USB video capture adapter (tested with: https://www.amazon.com.au/Portable-Camcorder-Definition-Acquisition-Broadcasting/dp/B08CDSXV47)
+- HDMI input via low‑cost HDMI→USB video capture adapter
+- Tested with: https://www.amazon.com.au/Portable-Camcorder-Definition-Acquisition-Broadcasting/dp/B08CDSXV47
 
 ## ✨ Features
 
