@@ -52,22 +52,25 @@ teleprompter_process = None
 # UI toggle state defaults
 focus_on = True
 flip_video = False
+presenter_profile = "auto"  # auto | generic | logitech_r800
+SUPPORTED_PRESENTER_PROFILES = ["auto", "generic", "logitech_r800"]
 
 def load_runtime_state():
-    global focus_on, flip_video
+    global focus_on, flip_video, presenter_profile
     try:
         if RUNTIME_STATE.exists():
             with open(RUNTIME_STATE, 'r', encoding='utf-8') as f:
                 data = json.load(f)
                 focus_on = bool(data.get('focus_on', focus_on))
                 flip_video = bool(data.get('flip_video', flip_video))
+                presenter_profile = str(data.get('presenter_profile', presenter_profile))
     except Exception as e:
         print(f"[WARN] Failed to load runtime state: {e}")
 
 def save_runtime_state():
     try:
         with open(RUNTIME_STATE, 'w', encoding='utf-8') as f:
-            json.dump({'focus_on': focus_on, 'flip_video': flip_video}, f)
+            json.dump({'focus_on': focus_on, 'flip_video': flip_video, 'presenter_profile': presenter_profile}, f)
     except Exception as e:
         print(f"[WARN] Failed to save runtime state: {e}")
 
@@ -136,7 +139,9 @@ def index():
                          prompt_files=prompt_files, 
                          teleprompter_running=teleprompter_running,
                          focus_on=focus_on,
-                         flip_video=flip_video)
+                         flip_video=flip_video,
+                         presenter_profile=presenter_profile,
+                         supported_profiles=SUPPORTED_PRESENTER_PROFILES)
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -413,6 +418,25 @@ def get_flip_status():
     global flip_video
     load_runtime_state()
     return jsonify({'flip_video': flip_video})
+
+@app.route('/get_presenter_profile')
+@require_login
+def get_presenter_profile():
+    """Return the current presenter profile and available profiles."""
+    load_runtime_state()
+    return jsonify({'presenter_profile': presenter_profile, 'supported_profiles': SUPPORTED_PRESENTER_PROFILES})
+
+@app.route('/set_presenter_profile')
+@require_login
+def set_presenter_profile():
+    """Set the presenter profile (auto|generic|logitech_r800)."""
+    global presenter_profile
+    profile = request.args.get('profile', '').strip()
+    if profile not in SUPPORTED_PRESENTER_PROFILES:
+        return jsonify({'ok': False, 'error': 'Unsupported profile', 'supported': SUPPORTED_PRESENTER_PROFILES}), 400
+    presenter_profile = profile
+    save_runtime_state()
+    return jsonify({'ok': True, 'presenter_profile': presenter_profile})
 
 def create_example_file():
     """Create an example prompt file if none exist."""

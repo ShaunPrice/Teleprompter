@@ -192,6 +192,18 @@
                 <span>Flip Video</span>
                 <button id="flipBtn" class="btn btn-secondary" type="button" onclick="toggleFlip()" data-state="{{ 'on' if flip_video else 'off' }}">...</button>
             </div>
+            <div class="control-row">
+                <span>Presenter Profile</span>
+                <div>
+                    <label for="presenterSelect" class="sr-only">Presenter Profile</label>
+                    <select id="presenterSelect" aria-label="Presenter Profile">
+                        {% for p in supported_profiles %}
+                        <option value="{{ p }}" {% if p == presenter_profile %}selected{% endif %}>{{ p }}</option>
+                        {% endfor %}
+                    </select>
+                    <button class="btn btn-primary" type="button" onclick="applyPresenterProfile()">Apply</button>
+                </div>
+            </div>
         </div>
 
         <!-- File Management -->
@@ -276,6 +288,19 @@
             const b = document.getElementById('flipBtn');
             b.textContent = on ? 'On' : 'Off';
             b.className = 'btn ' + (on ? 'btn-success' : 'btn-secondary');
+        }
+        async function applyPresenterProfile() {
+            const sel = document.getElementById('presenterSelect');
+            const v = sel.value;
+            try {
+                const r = await fetch(`{{ url_for('set_presenter_profile') }}?profile=${encodeURIComponent(v)}`);
+                const j = await r.json();
+                if (!j.ok) {
+                    alert('Failed to set profile: ' + (j.error || 'unknown error'));
+                }
+            } catch (e) {
+                console.error(e);
+            }
         }
 
     async function refreshFocus() {

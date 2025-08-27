@@ -28,6 +28,7 @@ focus_on = True
 # Runtime state timestamps
 _state_last_mtime = 0.0
 _state_last_check = 0.0
+presenter_profile = "auto"  # auto | generic | logitech_r800
 #####################################
 
 # Directory containing prompt text files
@@ -129,6 +130,7 @@ if __name__ == "__main__":
     layout_initialized = False
     debug_keys = False  # toggle runtime key logging with 'k'
     focus_on = True     # Laplacian focus overlay (toggle with 'f')
+    blackout_on = False # Presenter black screen toggle
 
     # Page mode state (default enabled)
     page_mode = True
@@ -186,7 +188,7 @@ if __name__ == "__main__":
     RUNTIME_STATE = Path(__file__).parent / "runtime_state.json"
     def _maybe_load_state(now):
         """Reload focus/flip from runtime_state.json if it changed (checked at most 2x/sec)."""
-        global _state_last_mtime, focus_on, flip_video, _state_last_check
+        global _state_last_mtime, focus_on, flip_video, _state_last_check, presenter_profile
         if now - _state_last_check < 0.5:
             return
         _state_last_check = now
@@ -198,12 +200,16 @@ if __name__ == "__main__":
                         data = json.load(f)
                     focus_on = bool(data.get('focus_on', focus_on))
                     flip_video = bool(data.get('flip_video', flip_video))
+                    presenter_profile = str(data.get('presenter_profile', presenter_profile))
                     _state_last_mtime = m
         except Exception:
             # ignore state errors
             pass
 
     try:
+        # Prepare key log file (for service/non-console runs)
+        keylog_file = Path(__file__).parent / "teleprompter.log"
+
         while True:
             # Background frame
             if camera_available and cap is not None:
@@ -245,7 +251,7 @@ if __name__ == "__main__":
             frame = cv2.addWeighted(frame, 1 - alpha, overlay, alpha, 0)
 
             # Focus assist: Laplacian magnitude overlay (on by default)
-            if focus_on:
+            if focus_on and not blackout_on:
                 try:
                     gray = cv2.cvtColor(pre_dim_frame, cv2.COLOR_BGR2GRAY)
                     lap16 = cv2.Laplacian(gray, cv2.CV_16S, ksize=3)
@@ -259,25 +265,30 @@ if __name__ == "__main__":
                     # If anything goes wrong, disable to avoid loop failures
                     focus_on = False
 
-            # Draw text lines centered
+            # Draw text (unless blackout)
             lines_drawn = 0
-            for l, line in enumerate(script_lines):
-                this_y = int(text_y + l * line_spacing)
-                if -line_spacing < this_y < fh + line_spacing:
-                    text_size = cv2.getTextSize(line, cv2.FONT_HERSHEY_SIMPLEX, font_scale, font_thickness)[0]
-                    x_pos = int((fw - text_size[0]) / 2)
-                    cv2.putText(frame, line, (x_pos, this_y), cv2.FONT_HERSHEY_SIMPLEX, font_scale, (255, 255, 255), font_thickness)
-                    lines_drawn += 1
+            if not blackout_on:
+                for l, line in enumerate(script_lines):
+                    this_y = int(text_y + l * line_spacing)
+                    if -line_spacing < this_y < fh + line_spacing:
+                        text_size = cv2.getTextSize(line, cv2.FONT_HERSHEY_SIMPLEX, font_scale, font_thickness)[0]
+                        x_pos = int((fw - text_size[0]) / 2)
+                        cv2.putText(frame, line, (x_pos, this_y), cv2.FONT_HERSHEY_SIMPLEX, font_scale, (255, 255, 255), font_thickness)
+                        lines_drawn += 1
 
-            if lines_drawn == 0:
-                cv2.putText(frame, "No text visible (scrolling)...", (20, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (180, 180, 180), 2)
+                if lines_drawn == 0:
+                    cv2.putText(frame, "No text visible (scrolling)...", (20, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (180, 180, 180), 2)
+            else:
+                # Force full black output
+                frame[:] = 0
 
-            # Help overlay
-            help_text = 'q: quit | o: fullscreen | f: focus | < >: prev/next | ^ v : speed | space: pause | p/Enter/F5: page mode'
-            cv2.putText(frame, help_text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (100, 100, 100), 2)
+            # Help overlay (hidden during blackout)
+            if not blackout_on:
+                help_text = 'q: quit | o: fullscreen | f: focus | < >: prev/next | ^ v : speed | space: pause | p/Enter/F5: page mode'
+                cv2.putText(frame, help_text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (100, 100, 100), 2)
 
-            # Page mode indicator
-            if page_mode:
+            # Page mode indicator (hidden during blackout)
+            if page_mode and not blackout_on:
                 cv2.putText(frame, 'PAGE MODE', (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 200, 255), 2)
 
             # Mirror/rotate for glass rigs (legacy)
@@ -285,11 +296,12 @@ if __name__ == "__main__":
                 frame = cv2.flip(frame, output_flip)
                 frame = cv2.rotate(frame, output_rotate)
 
-            # Show
-            cv2.imshow("Teleprompter", frame)
+            # Show (with optional blank screen for presenter 'black screen' button)
+            display_frame = frame
+            cv2.imshow("Teleprompter", display_frame)
 
             # Scroll text upward if not paused
-            if scrolling and not page_mode:
+            if scrolling and not page_mode and not blackout_on:
                 text_y -= scroll_speed
             if text_y + len(script_lines) * line_spacing < 0:
                 text_y = fh
@@ -302,8 +314,35 @@ if __name__ == "__main__":
             key = key_raw & 0xFF
 
             if debug_keys and key_raw != -1:
-                # Print both values to console for mapping presenters
-                print(f"[KEY] raw={key_raw} masked={key}")
+                # Print both values and append to log for service scenarios
+                msg = f"[KEY] raw={key_raw} masked={key}"
+                print(msg)
+                try:
+                    with open(keylog_file, 'a', encoding='utf-8') as lf:
+                        lf.write(msg + "\n")
+                except Exception:
+                    pass
+
+            # Presenter profile specific mappings
+            # Known raw codes often observed for different platforms; the 'k' logger can help refine
+            if presenter_profile == "logitech_r800":
+                KEY_BLACK_RAW = {98, 66, 8, 65480, 46}  # include '.' (46) as observed screen button
+                KEY_LEFT_RAW = {81, 2424832, 65361}
+                KEY_RIGHT_RAW = {83, 2555904, 65363}
+                KEY_PAGEUP_RAW = {65365, 2162688}
+                KEY_PAGEDOWN_RAW = {65366, 2228224}
+                KEY_PLAY_RAW = {13, 0x74, 65474, 194}  # include observed 194 as Play/Page toggle
+                KEY_PREV_ASCII = {60, 85}  # '<' and observed 'U'
+                KEY_NEXT_ASCII = {62, 86}  # '>' and observed 'V'
+            else:
+                KEY_BLACK_RAW = {98, 66}
+                KEY_LEFT_RAW = {81, 2424832}
+                KEY_RIGHT_RAW = {83, 2555904}
+                KEY_PAGEUP_RAW = {65365, 2162688}
+                KEY_PAGEDOWN_RAW = {65366, 2228224}
+                KEY_PLAY_RAW = {13, 0x74, 65474}
+                KEY_PREV_ASCII = {60}
+                KEY_NEXT_ASCII = {62}
 
             if key == ord('q'):
                 break
@@ -316,17 +355,13 @@ if __name__ == "__main__":
             elif key == ord('f'):
                 focus_on = not focus_on
             elif key in (32, 27):  # Spacebar, Escape -> pause/resume scrolling
-                scrolling = not scrolling
+                # R800 sends ESC to stop slideshow; use ESC as Page Mode toggle instead
+                if presenter_profile == "logitech_r800" and key == 27:
+                    pass  # handled below as a PAGE MODE toggle
+                else:
+                    scrolling = not scrolling
             else:
-                # Cross-platform key groups
-                KEY_LEFT_RAW = {81, 2424832}
-                KEY_RIGHT_RAW = {83, 2555904}
-                KEY_PAGEUP_RAW = {65365, 2162688}
-                KEY_PAGEDOWN_RAW = {65366, 2228224}
-                KEY_PREV_ASCII = {60}  # '<'
-                KEY_NEXT_ASCII = {62}  # '>'
-                KEY_PLAY_RAW = {13, 0x74, 65474}  # Enter, F5 (common)
-
+                # Use computed groups above
                 if (key_raw in KEY_LEFT_RAW) or (key_raw in KEY_PAGEUP_RAW) or (key in KEY_PREV_ASCII):
                     if page_mode:
                         jump_prev_page()
@@ -337,7 +372,7 @@ if __name__ == "__main__":
                         jump_next_page()
                     else:
                         scroll_speed = min(scroll_speed + 1, 20)
-                elif (key_raw in KEY_PLAY_RAW) or (key in (ord('p'), ord('P'))):
+                elif (key_raw in KEY_PLAY_RAW) or (key in (ord('p'), ord('P'))) or (presenter_profile == "logitech_r800" and key == 27):
                     # Toggle page mode; align appropriately
                     page_mode = not page_mode
                     cur_top = get_current_top_index()
@@ -353,7 +388,10 @@ if __name__ == "__main__":
                     else:
                         # Leaving page mode: keep current top line visible
                         text_y = page_anchor_y - cur_top * line_spacing
-                elif key in (46, 98):  # '.' or 'b'
+                elif (key_raw in KEY_BLACK_RAW) or (key in (ord('b'), ord('B'))):
+                    # Toggle blackout mode
+                    blackout_on = not blackout_on
+                elif (key in (46,) and presenter_profile != "logitech_r800") or key in (ord('r'), ord('R')):
                     # Reload current file list and re-read the same index
                     files = sorted(glob.glob(os.path.join(prompt_dir, "*.txt")))
                     if files:
@@ -363,7 +401,13 @@ if __name__ == "__main__":
                         page_anchors = compute_page_anchors(script_lines)
                 elif key in (ord('k'), ord('K')):
                     debug_keys = not debug_keys
-                    print(f"[INFO] Key debug {'ON' if debug_keys else 'OFF'}")
+                    state_msg = f"[INFO] Key debug {'ON' if debug_keys else 'OFF'}"
+                    print(state_msg)
+                    try:
+                        with open(keylog_file, 'a', encoding='utf-8') as lf:
+                            lf.write(state_msg + "\n")
+                    except Exception:
+                        pass
     finally:
         if cap is not None:
             cap.release()
