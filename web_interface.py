@@ -222,6 +222,7 @@ def save_file():
         with open(file_path, 'w', encoding='utf-8') as f:
             f.write(content)
         flash(f'File {filename} saved successfully.', 'success')
+        return redirect(url_for('edit_file')+'/'+filename)
     except Exception as e:
         flash(f'Error saving file: {e}', 'error')
     
