@@ -217,10 +217,10 @@
                             <span class="file-name">{{ file }}</span>
                         </div>
                         <div class="file-actions">
-                            <a href="{{ url_for('edit_file', filename=file) }}" class="btn btn-primary">Edit</a>
                             {% if not teleprompter_running %}
                                 <a href="{{ url_for('start_teleprompter', filename=file) }}" class="btn btn-success">Start</a>
                             {% endif %}
+                            <a href="{{ url_for('edit_file', filename=file) }}" class="btn btn-primary">Edit</a>
                             <a href="{{ url_for('delete_file', filename=file) }}" class="btn btn-danger"
                                onclick="return confirm('Are you sure you want to delete {{ file }}?')">Delete</a>
                         </div>
